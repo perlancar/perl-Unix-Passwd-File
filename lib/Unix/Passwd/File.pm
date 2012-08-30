@@ -12,10 +12,22 @@ use File::Flock;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(
                        get_user list_users delete_user modify_user add_user
+                       get_max_uid
+                       set_user_password
                        get_group list_groups delete_group modify_group add_group
+                       get_max_gid
+                       add_user_to_group
+                       delete_user_from_group
                );
 
 our %SPEC;
+
+my %common_args = (
+    etc_dir => {
+        summary => 'Specify location of passwd files',
+        schema  => ['str*' => {default=>'/etc'}],
+    },
+);
 
 my %passwd_fields = (
     user => {
@@ -125,7 +137,7 @@ my %group_fields = (
     },
     gid => {
         index   => 2,
-        schema  => 'int',
+        schema  => 'int*',
         summary => 'Numeric group ID',
     },
     members => {
@@ -335,6 +347,7 @@ $SPEC{list_users} = {
     v => 1.1,
     summary => 'List Unix users in passwd file',
     args => {
+        %common_args,
         detail => {
             summary => 'If true, return all fields instead of just usernames',
             schema => ['bool' => {default => 0}],
@@ -399,11 +412,12 @@ The function is not dissimilar to Unix's `getpwnam()` or `getpwuid()`.
 
 _
     args => {
+        %common_args,
         user => {
-            schema => 'str',
+            schema => 'str*',
         },
         uid => {
-            schema => 'int',
+            schema => 'int*',
         },
         with_field_names => {
             summary => 'If false, don\'t return hash',
@@ -457,6 +471,7 @@ $SPEC{list_groups} = {
     v => 1.1,
     summary => 'List Unix groups in group file',
     args => {
+        %common_args,
         detail => {
             summary => 'If true, return all fields instead of just group names',
             schema => ['bool' => {default => 0}],
@@ -521,11 +536,12 @@ The function is not dissimilar to Unix's `getgrnam()` or `getgrgid()`.
 
 _
     args => {
+        %common_args,
         group => {
-            schema => 'str',
+            schema => 'str*',
         },
         gid => {
-            schema => 'int',
+            schema => 'int*',
         },
         with_field_names => {
             summary => 'If false, don\'t return hash',
@@ -575,6 +591,62 @@ sub get_group {
     );
 }
 
+$SPEC{get_max_uid} = {
+    v => 1.1,
+    summary => 'Get maximum UID used',
+    args => {
+        %common_args,
+    },
+};
+sub get_max_uid {
+    require List::Util;
+
+    my %args  = @_;
+    _routine(
+        @_,
+        _read_passwd     => 1,
+        detail           => 0,
+        with_field_names => 0,
+        _after_read => sub {
+            my $stash = shift;
+            my $passwd = $stash->{passwd};
+            $stash->{res} = [200, "OK", List::Util::max(
+                map {$_->[2]} @$passwd
+            )];
+            $stash->{exit}++;
+            [200, "OK"];
+        },
+    );
+}
+
+$SPEC{get_max_gid} = {
+    v => 1.1,
+    summary => 'Get maximum GID used',
+    args => {
+        %common_args,
+    },
+};
+sub get_max_gid {
+    require List::Util;
+
+    my %args  = @_;
+    _routine(
+        @_,
+        _read_group      => 1,
+        detail           => 0,
+        with_field_names => 0,
+        _after_read => sub {
+            my $stash = shift;
+            my $group = $stash->{group};
+            $stash->{res} = [200, "OK", List::Util::max(
+                map {$_->[2]} @$group
+            )];
+            $stash->{exit}++;
+            [200, "OK"];
+        },
+    );
+}
+
 1;
 # ABSTRACT: Manipulate /etc/{passwd,shadow,group,gshadow} entries
 
@@ -605,6 +677,16 @@ sub get_group {
  # deleting user will also delete user's group, except using delete_group=>0
  $res = delete_user(user=>"neil");
 
+ # change user password
+ $res = set_user_password(user=>"steven", pass=>"foobar");
+
+ # add/delete user to/from group
+ $res = add_user_to_group(user=>"steven", group=>"wheel");
+ $res = delete_user_from_group(user=>"steven", group=>"wheel");
+
+ # others
+ $res = get_max_uid();
+ $res = get_max_gid();
 
 =head1 DESCRIPTION
 
