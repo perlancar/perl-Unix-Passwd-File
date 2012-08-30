@@ -7,6 +7,6 @@ Revision history for Perl extension Unix-Passwd-File
          having to input passwd, shadow, group, gshadow separately; with
          Unix::Passwd::File I just need to specify etc_dir; 2) I didn't get
          locking to work, something which I think is important and I'd rather
-         start with a clean codebase; 3) want a cleaner interface, without any
-         global error variable.
+         start with a clean codebase to make sure this and other things work; 3)
+         want a cleaner interface, without any global error variable.
 
