@@ -7,6 +7,7 @@ use FindBin '$Bin';
 
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
+use File::Flock;
 use File::Path qw(remove_tree);
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_group get_group);
@@ -16,7 +17,17 @@ my $tmpdir = tempdir(CLEANUP=>1);
 $CWD = $tmpdir;
 note "tmpdir=$tmpdir";
 
-# XXX: test failure in locking
+# can't do this, lock by the same process
+#
+#subtest "failure to lock" => sub {
+#    remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
+#    lock("$tmpdir/simple/passwd.lock");
+#    my $res = add_group(etc_dir=>"$tmpdir/simple",
+#                       group=>"foo", members=>"a,b",
+#                   );
+#    is($res->[0], 412, "status");
+#    unlock("$tmpdir/simple/passwd.lock");
+#};
 
 subtest "missing required fields" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
