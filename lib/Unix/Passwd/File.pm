@@ -337,7 +337,7 @@ sub list_users {
                 }
             }
 
-            $stash->{res} = \@rows;
+            $stash->{res} = [200, "OK", \@rows];
 
             $stash->{exit}++;
             [200, "OK"];
