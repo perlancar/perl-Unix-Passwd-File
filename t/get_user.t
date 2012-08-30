@@ -5,8 +5,23 @@ use strict;
 use warnings;
 use FindBin '$Bin';
 
-use Unix::Passwd::File qw(get_user);
+use File::chdir;
+use File::Copy::Recursive qw(rcopy);
+use File::Temp qw(tempdir);
 use Test::More 0.96;
+use Unix::Passwd::File qw(get_user);
+
+my $tmpdir = tempdir(CLEANUP=>1);
+$CWD = $tmpdir;
+note "tmpdir=$tmpdir";
+
+rcopy("$Bin/data/simple", "$tmpdir/simple");
+unlink "$tmpdir/simple/shadow";
+
+subtest "shadow unreadable -> ok" => sub {
+    my $res = get_user(etc_dir=>"$tmpdir/simple", user=>"root");
+    is_deeply($res->[0], 200, "status");
+};
 
 subtest "etc_dir unknown -> error" => sub {
     my $res = get_user(etc_dir=>"$Bin/data/foo", user=>"bin");
@@ -42,3 +57,9 @@ subtest "mention user AND uid -> error" => sub {
 
 DONE_TESTING:
 done_testing();
+if (Test::More->builder->is_passing) {
+    note "all tests successful, deleting tmp dir";
+    $CWD = "/";
+} else {
+    diag "there are failing tests, not deleting tmp dir $tmpdir";
+}
