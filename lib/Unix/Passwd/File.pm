@@ -8,6 +8,7 @@ use Log::Any '$log';
 # VERSION
 
 use File::Flock;
+use List::Util qw(max first);
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(
@@ -29,15 +30,19 @@ my %common_args = (
     },
 );
 
+my $re_user  = qr/\A[A-Za-z0-9._-]+\z/;
+my $re_group = $re_user;
+my $re_field = qr/\A[^\n:]*\z/;
+
 my %passwd_fields = (
     user => {
         index   => 0,
-        schema  => ['str*' => {match => qr/\A[A-Za-z0-9._-]+\z/}],
+        schema  => ['str*' => {match => $re_user}],
         summary => 'User (login) name',
     },
     pass => {
         index   => 1,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'Password, generally should be "x" which means password is '.
             'encrypted in shadow',
     },
@@ -53,12 +58,12 @@ my %passwd_fields = (
     },
     gecos => {
         index   => 4,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'Usually, it contains the full username',
     },
     home => {
         index   => 5,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'User\'s home directory',
     },
     shell => {
@@ -74,7 +79,7 @@ my %shadow_fields = (
     user => $passwd_fields{user},
     encpass => {
         index   => 1,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'Encrypted password',
     },
     last_pwchange => {
@@ -116,7 +121,7 @@ my %shadow_fields = (
     },
     reserved => {
         index   => 8,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'This field is reserved for future use',
     }
 );
@@ -126,12 +131,12 @@ for (keys %shadow_fields) {$shadow_field_names[$shadow_fields{$_}{index}]=$_}
 my %group_fields = (
     group => {
         index   => 0,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_group}],
         summary => 'Group name',
     },
     pass => {
         index   => 1,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'Password, generally should be "x" which means password is '.
             'encrypted in gshadow',
     },
@@ -142,7 +147,7 @@ my %group_fields = (
     },
     members => {
         index   => 3,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'List of usernames that are members of this group, '.
             'separated by commas',
     },
@@ -154,17 +159,17 @@ my %gshadow_fields = (
     group => $group_fields{group},
     encpass => {
         index => 1,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match=> $re_field}],
         summary => 'Encrypted password',
     },
     admins => {
         index => 2,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'It must be a comma-separated list of user names, or empty',
     },
     members => {
         index => 3,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        schema  => ['str*' => {match => $re_field}],
         summary => 'List of usernames that are members of this group, '.
             'separated by commas; usually empty since this is already in group',
     },
@@ -176,19 +181,26 @@ for (keys %gshadow_fields) {$gshadow_field_names[$gshadow_fields{$_}{index}]=$_}
 # basic flow, to avoid duplication of code. _routine accept these special
 # arguments for flow control:
 #
-# - _read_shadow  = 0*/1/2 (2 means optional, don't exit if fail)
-# - _read_passwd  = 0*/1
-# - _read_gshadow = 0*/1/2 (2 means optional, don't exit if fail)
-# - _read_group   = 0*/1
-# - _lock         = 0*/1 (whether to lock)
-# - _after_read   = code (executed after reading all passwd/group files)
+# - _read_shadow   = 0*/1/2 (2 means optional, don't exit if fail)
+# - _read_passwd   = 0*/1
+# - _read_gshadow  = 0*/1/2 (2 means optional, don't exit if fail)
+# - _read_group    = 0*/1
+# - _lock          = 0*/1 (whether to lock)
+# - _after_read    = code (executed after reading all passwd/group files)
 # - _after_read_passwd_entry = code (executed after reading a line in passwd)
 # - _after_read_group_entry = code (executed after reading a line in group)
+# - _write_shadow  = 0*/1
+# - _write_passwd  = 0*/1
+# - _write_gshadow = 0*/1
+# - _write_group   = 0*/1
 #
 # all the hooks are fed $stash, sort of like a bag or object containing all
 # data. should return enveloped response. _routine will return with response if
 # response is non success. _routine will also return immediately if $stash{exit}
 # is set.
+#
+# to write, we open once but with mode +< instead of <. we read first then we
+# seek back to beginning and write from in-memory data.
 #
 # final result is in $stash{res} or non-success result returned by hook.
 sub _routine {
@@ -198,7 +210,7 @@ sub _routine {
     my $detail  = $args{detail};
     my $wfn     = $args{with_field_names} // 1;
     my $locked;
-    my $fh;
+    my ($fhp, $fhs, $fhg, $fhgs);
     my %stash;
 
     my $e = eval {
@@ -221,15 +233,16 @@ sub _routine {
         my @shadowh;
         $stash{shadow}   = \@shadow;
         $stash{shadowh}  = \@shadowh;
-        if ($args{_read_shadow}) {
-            unless (open $fh, "<", "$etc/shadow") {
-                if ($args{_read_shadow} == 2) {
+        if ($args{_read_shadow} || $args{_write_shadow}) {
+            unless (open $fhs, ($args{_write_shadow} ? "+":"")."<",
+                    "$etc/shadow") {
+                if ($args{_read_shadow} == 2 && !$args{_write_shadow}) {
                     goto L1;
                 } else {
                     return [500, "Can't open $etc/shadow: $!"];
                 }
             }
-            while (<$fh>) {
+            while (<$fhs>) {
                 chomp;
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %shadow_fields);
@@ -248,10 +261,10 @@ sub _routine {
         my @passwdh;
         $stash{passwd}   = \@passwd;
         $stash{passwdh}  = \@passwdh;
-        if ($args{_read_passwd}) {
-            open $fh, "<", "$etc/passwd"
+        if ($args{_read_passwd} || $args{_write_passwd}) {
+            open $fhp, ($args{_write_passwd} ? "+":"")."<", "$etc/passwd"
                 or return [500, "Can't open $etc/passwd: $!"];
-            while (<$fh>) {
+            while (<$fhp>) {
                 chomp;
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %passwd_fields);
@@ -276,15 +289,16 @@ sub _routine {
         my @gshadowh;
         $stash{gshadow}  = \@gshadow;
         $stash{gshadowh} = \@gshadowh;
-        if ($args{_read_gshadow}) {
-            unless (open $fh, "<", "$etc/gshadow") {
-                if ($args{_read_gshadow} == 2) {
+        if ($args{_read_gshadow} || $args{_write_gshadow}) {
+            unless (open $fhgs, ($args{_write_gshadow} ? "+":"")."<",
+                    "$etc/gshadow") {
+                if ($args{_read_gshadow} == 2 && !$args{_write_gshadow}) {
                     goto L2;
                 } else {
                     return [500, "Can't open $etc/gshadow: $!"];
                 }
             }
-            while (<$fh>) {
+            while (<$fhgs>) {
                 chomp;
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %gshadow_fields);
@@ -303,10 +317,11 @@ sub _routine {
         my @grouph;
         $stash{group}    = \@group;
         $stash{grouph}   = \@grouph;
-        if ($args{_read_group}) {
-            open $fh, "<", "$etc/group"
-                or return [500, "Can't open $etc/group: $!"];
-            while (<$fh>) {
+        if ($args{_read_group} || $args{_write_group}) {
+            open $fhg, ($args{_write_group} ? "+":"")."<",
+                "$etc/group"
+                    or return [500, "Can't open $etc/group: $!"];
+            while (<$fhg>) {
                 chomp;
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %group_fields);
@@ -331,13 +346,53 @@ sub _routine {
             return $res if $res->[0] != 200;
             return if $stash{exit};
         }
+
+        # write files
+
+        if ($args{_write_shadow}) {
+            seek $fhs, 0, 0 or return [500, "Can't seek in $etc/shadow: $!"];
+            for (@shadow) {
+                print $fhs join(":", map {$_//""} @$_), "\n";
+            }
+            close $fhs or return [500, "Can't close $etc/shadow: $!"];
+            chmod 0640, "$etc/shadow"; # check error?
+        }
+
+        if ($args{_write_passwd}) {
+            seek $fhp, 0, 0 or return [500, "Can't seek in $etc/passwd: $!"];
+            for (@passwd) {
+                print $fhp join(":", map {$_//""} @$_), "\n";
+            }
+            close $fhp or return [500, "Can't close $etc/passwd: $!"];
+            chmod 0644, "$etc/passwd"; # check error?
+        }
+
+        if ($args{_write_gshadow}) {
+            seek $fhgs, 0, 0 or return [500, "Can't seek in $etc/gshadow: $!"];
+            for (@gshadow) {
+                print $fhgs join(":", map {$_//""} @$_), "\n";
+            }
+            close $fhgs or return [500, "Can't close $etc/gshadow: $!"];
+            chmod 0640, "$etc/gshadow"; # check error?
+        }
+
+        if ($args{_write_group}) {
+            seek $fhg, 0, 0 or return [500, "Can't seek in $etc/group: $!"];
+            for (@group) {
+                print $fhg join(":", map {$_//""} @$_), "\n";
+            }
+            close $fhg or return [500, "Can't close $etc/group: $!"];
+            chmod 0644, "$etc/group"; # check error?
+        }
+
+        [200, "OK"];
     }; # eval
 
     if ($locked) {
         unlock("$etc/passwd.lock");
     }
 
-    $stash{res}   = $e if $e;
+    $stash{res}   = $e if $e && $e->[0] != 200;
     $stash{res} //= [500, "BUG: res not set"];
 
     $stash{res};
@@ -396,7 +451,7 @@ sub list_users {
             $stash->{res} = [200, "OK", \@rows];
 
             $stash->{exit}++;
-            [200, "OK"];
+            [200];
         },
     );
 }
@@ -458,7 +513,7 @@ sub get_user {
                 $stash->{res} = [200,"OK", $wfn ? $passwdh->[-1]:$passwd->[-1]];
                 $stash->{exit}++;
             }
-            [200, "OK"];
+            [200];
         },
         _after_read => sub {
             my $stash = shift;
@@ -520,7 +575,7 @@ sub list_groups {
             $stash->{res} = [200, "OK", \@rows];
 
             $stash->{exit}++;
-            [200, "OK"];
+            [200];
         },
     );
 }
@@ -582,7 +637,7 @@ sub get_group {
                 $stash->{res} = [200,"OK", $wfn ? $grouph->[-1]:$group->[-1]];
                 $stash->{exit}++;
             }
-            [200, "OK"];
+            [200];
         },
         _after_read => sub {
             my $stash = shift;
@@ -599,22 +654,20 @@ $SPEC{get_max_uid} = {
     },
 };
 sub get_max_uid {
-    require List::Util;
-
     my %args  = @_;
     _routine(
         @_,
         _read_passwd     => 1,
         detail           => 0,
         with_field_names => 0,
-        _after_read => sub {
+        _after_read      => sub {
             my $stash = shift;
             my $passwd = $stash->{passwd};
-            $stash->{res} = [200, "OK", List::Util::max(
+            $stash->{res} = [200, "OK", max(
                 map {$_->[2]} @$passwd
             )];
             $stash->{exit}++;
-            [200, "OK"];
+            [200];
         },
     );
 }
@@ -635,14 +688,87 @@ sub get_max_gid {
         _read_group      => 1,
         detail           => 0,
         with_field_names => 0,
-        _after_read => sub {
+        _after_read      => sub {
             my $stash = shift;
             my $group = $stash->{group};
             $stash->{res} = [200, "OK", List::Util::max(
                 map {$_->[2]} @$group
             )];
             $stash->{exit}++;
-            [200, "OK"];
+            [200];
+        },
+    );
+}
+
+$SPEC{add_group} = {
+    v => 1.1,
+    summary => 'Add a new group',
+    args => {
+        %common_args,
+        group => {
+            req => 1,
+        },
+        gid => {
+            summary => 'Pick a specific new GID',
+            req => 0,
+        },
+        min_gid => {
+            summary => 'Pick a range for new GID',
+            req => 0,
+        },
+        max_gid => {
+            summary => 'Pick a range for new GID',
+            req => 0,
+        },
+        members => {
+            summary => 'Fill initial members',
+            req => 0,
+        },
+    },
+};
+sub add_group {
+    my %args = @_;
+
+    # TMP,schema
+    my $gn = $args{group} or return [400, "Please specify group"];
+    $gn =~ $re_group or return [400, "Invalid group, please use $re_group"];
+    my $gid     = $args{gid};
+    my $min_gid = $args{min_gid} // 1000;
+    my $max_gid = $args{max_gid} // 65535;
+    my $members = $args{members};
+    if ($members && ref($members) eq 'ARRAY') { $members = join(",",@$members) }
+    $members //= "";
+    $members =~ $re_field
+        or return [400, "Invalid members, please use $re_field"];
+
+    _routine(
+        @_,
+        _lock            => 1,
+        _write_group     => 1,
+        _write_gshadow   => 1,
+        _after_read      => sub {
+            my $stash = shift;
+            my $group   = $stash->{group};
+            my $gshadow = $stash->{gshadow};
+
+            return [412, "Group $gn already exists"]
+                if first { $_->[0] eq $gn } @$group;
+
+            my @gids = map { $_->[2] } @$group;
+            if (defined $gid) {
+                return [412, "GID $gid already exists"] if $gid ~~ @gids;
+            } else {
+                for ($min_gid .. $max_gid) {
+                    do { $gid = $_; last } unless $_ ~~ @gids;
+                }
+                return [412, "Can't find available GID"] unless defined($gid);
+            }
+
+            push @$group  , [$gn, "x", $gid, $members];
+            push @$gshadow, [$gn, "!", "", ""];
+            $stash->{res} = [200, "OK", {gid=>$gid}];
+
+            [200];
         },
     );
 }
@@ -688,11 +814,13 @@ sub get_max_gid {
  $res = get_max_uid();
  $res = get_max_gid();
 
+
 =head1 DESCRIPTION
 
 This module can be used to read and manipulate entries in Unix system password
 files (/etc/passwd, /etc/group, /etc/group, /etc/gshadow; but can also be told
 to search in custom location, for testing purposes).
+
 
 =head1 SEE ALSO
 
