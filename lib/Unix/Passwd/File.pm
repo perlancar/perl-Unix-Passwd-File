@@ -171,6 +171,7 @@ for (keys %gshadow_fields) {$gshadow_field_names[$gshadow_fields{$_}{index}]=$_}
 # - _lock         = 0*/1 (whether to lock)
 # - _after_read   = code (executed after reading all passwd/group files)
 # - _after_read_passwd_entry = code (executed after reading a line in passwd)
+# - _after_read_group_entry = code (executed after reading a line in group)
 #
 # all the hooks are fed $stash, sort of like a bag or object containing all
 # data. should return enveloped response. _routine will return with response if
@@ -245,9 +246,9 @@ sub _routine {
                 push @passwd, \@r;
                 if ($wfn) {
                     my %r;
-                    @r{@passwd_field_names} = @r;
                     @r{@shadow_field_names} = @{ $shadow{$r[0]} }
                         if $shadow{$r[0]};
+                    @r{@passwd_field_names} = @r;
                     push @passwdh, \%r;
                 }
                 if ($args{_after_read_passwd_entry}) {
@@ -300,10 +301,15 @@ sub _routine {
                 push @group, \@r;
                 if ($wfn) {
                     my %r;
-                    @r{@group_field_names}   = @r;
                     @r{@gshadow_field_names} = @{ $gshadow{$r[0]} }
                         if $gshadow{$r[0]};
+                    @r{@group_field_names}   = @r;
                     push @grouph, \%r;
+                }
+                if ($args{_after_read_group_entry}) {
+                    my $res = $args{_after_read_group_entry}->(\%stash);
+                    return $res if $res->[0] != 200;
+                    return if $stash{exit};
                 }
             }
         }
@@ -363,8 +369,6 @@ sub list_users {
             my @rows;
             my $passwd  = $stash->{passwd};
             my $passwdh = $stash->{passwdh};
-            my $shadow  = $stash->{shadow};
-            my $shadowh = $stash->{shadowh};
 
             for (my $i=0; $i < @$passwd; $i++) {
                 if (!$detail) {
@@ -426,7 +430,7 @@ sub get_user {
         @_,
         _read_passwd     => 1,
         _read_shadow     => 2,
-        with_field_names => 1,
+        with_field_names => $wfn,
         detail           => 1,
         _after_read_passwd_entry => sub {
             my $stash = shift;
@@ -438,6 +442,128 @@ sub get_user {
             if (defined($user) && $passwd->[-1][0] eq $user ||
                     defined($uid) && $passwd->[-1][2] == $uid) {
                 $stash->{res} = [200,"OK", $wfn ? $passwdh->[-1]:$passwd->[-1]];
+                $stash->{exit}++;
+            }
+            [200, "OK"];
+        },
+        _after_read => sub {
+            my $stash = shift;
+            [404, "Not found"];
+        },
+    );
+}
+
+$SPEC{list_groups} = {
+    v => 1.1,
+    summary => 'List Unix groups in group file',
+    args => {
+        detail => {
+            summary => 'If true, return all fields instead of just group names',
+            schema => ['bool' => {default => 0}],
+        },
+        with_field_names => {
+            summary => 'If false, don\'t return hash for each entry',
+            schema => [bool => {default=>1}],
+            description => <<'_',
+
+By default, when `detail=>1`, a hashref is returned for each entry containing
+field names and its values, e.g. `{group=>"neil", pass=>"x", gid=>500, ...}`.
+With `with_field_names=>0`, an arrayref is returned instead: `["neil", "x", 500,
+...]`.
+
+_
+        },
+    },
+};
+sub list_groups {
+    my %args = @_;
+    my $detail = $args{detail};
+    my $wfn    = $args{with_field_names} // ($detail ? 1:0);
+
+    _routine(
+        @_,
+        _read_group      => 1,
+        _read_gshadow    => $detail ? 2:0,
+        with_field_names => $wfn,
+        _after_read      => sub {
+            my $stash = shift;
+
+            my @rows;
+            my $group    = $stash->{group};
+            my $grouph   = $stash->{grouph};
+
+            for (my $i=0; $i < @$group; $i++) {
+                if (!$detail) {
+                    push @rows, $group->[$i][0];
+                } elsif ($wfn) {
+                    push @rows, $grouph->[$i];
+                } else {
+                    push @rows, $group->[$i];
+                }
+            }
+
+            $stash->{res} = [200, "OK", \@rows];
+
+            $stash->{exit}++;
+            [200, "OK"];
+        },
+    );
+}
+
+$SPEC{get_group} = {
+    v => 1.1,
+    summary => 'Get group details by group name or gid',
+    description => <<'_',
+
+Either `group` OR `gid` must be specified.
+
+The function is not dissimilar to Unix's `getgrnam()` or `getgrgid()`.
+
+_
+    args => {
+        group => {
+            schema => 'str',
+        },
+        gid => {
+            schema => 'int',
+        },
+        with_field_names => {
+            summary => 'If false, don\'t return hash',
+            schema => [bool => {default=>1}],
+            description => <<'_',
+
+By default, a hashref is returned containing field names and its values, e.g.
+`{group=>"neil", pass=>"x", gid=>500, ...}`. With `with_field_names=>0`, an
+arrayref is returned instead: `["neil", "x", 500, ...]`.
+
+_
+        },
+    },
+};
+sub get_group {
+    my %args  = @_;
+    my $wfn   = $args{with_field_names} // 1;
+    my $gn    = $args{group};
+    my $gid   = $args{gid};
+    return [400, "Please specify group OR gid"]
+        unless defined($gn) xor defined($gid);
+
+    _routine(
+        @_,
+        _read_group      => 1,
+        _read_gshadow    => 2,
+        with_field_names => $wfn,
+        detail           => 1,
+        _after_read_group_entry => sub {
+            my $stash = shift;
+
+            my @rows;
+            my $group  = $stash->{group};
+            my $grouph = $stash->{grouph};
+
+            if (defined($gn) && $group->[-1][0] eq $gn ||
+                    defined($gid) && $group->[-1][2] == $gid) {
+                $stash->{res} = [200,"OK", $wfn ? $grouph->[-1]:$group->[-1]];
                 $stash->{exit}++;
             }
             [200, "OK"];
