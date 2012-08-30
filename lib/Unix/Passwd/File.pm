@@ -73,10 +73,17 @@ my %passwd_fields = (
     },
 );
 my @passwd_field_names;
-for (keys %passwd_fields) {$passwd_field_names[$passwd_fields{$_}{index}]=$_}
+for (keys %passwd_fields) {
+    $passwd_field_names[$passwd_fields{$_}{index}] = $_;
+    delete $passwd_fields{$_}{index};
+}
 
 my %shadow_fields = (
-    user => $passwd_fields{user},
+    user => {
+        index   => 0,
+        schema  => ['str*' => {match => $re_user}],
+        summary => 'User (login) name',
+    },
     encpass => {
         index   => 1,
         schema  => ['str*' => {match => $re_field}],
@@ -126,7 +133,10 @@ my %shadow_fields = (
     }
 );
 my @shadow_field_names;
-for (keys %shadow_fields) {$shadow_field_names[$shadow_fields{$_}{index}]=$_}
+for (keys %shadow_fields) {
+    $shadow_field_names[$shadow_fields{$_}{index}] = $_;
+    delete $shadow_fields{$_}{index};
+}
 
 my %group_fields = (
     group => {
@@ -153,10 +163,17 @@ my %group_fields = (
     },
 );
 my @group_field_names;
-for (keys %group_fields) {$group_field_names[$group_fields{$_}{index}]=$_}
+for (keys %group_fields) {
+    $group_field_names[$group_fields{$_}{index}] = $_;
+    delete $group_fields{$_}{index};
+}
 
 my %gshadow_fields = (
-    group => $group_fields{group},
+    group => {
+        index   => 0,
+        schema  => ['str*' => {match => $re_group}],
+        summary => 'Group name',
+    },
     encpass => {
         index => 1,
         schema  => ['str*' => {match=> $re_field}],
@@ -175,7 +192,10 @@ my %gshadow_fields = (
     },
 );
 my @gshadow_field_names;
-for (keys %gshadow_fields) {$gshadow_field_names[$gshadow_fields{$_}{index}]=$_}
+for (keys %gshadow_fields) {
+    $gshadow_field_names[$gshadow_fields{$_}{index}] = $_;
+    delete $gshadow_fields{$_}{index};
+}
 
 # all public functions in this module uses the _routine, which contains the
 # basic flow, to avoid duplication of code. _routine accept these special
@@ -387,12 +407,14 @@ sub _routine {
 
         [200, "OK"];
     }; # eval
+    $e = [500, "Died: $@"] if $@;
 
     if ($locked) {
         unlock("$etc/passwd.lock");
     }
 
-    $stash{res}   = $e if $e && $e->[0] != 200;
+    $stash{res} //= $e if $e && $e->[0] != 200;
+    $stash{res} //= $e if $e && $e->[0] != 200;
     $stash{res} //= [500, "BUG: res not set"];
 
     $stash{res};
@@ -427,7 +449,7 @@ sub list_users {
     my $wfn    = $args{with_field_names} // ($detail ? 1:0);
 
     _routine(
-        @_,
+        %args,
         _read_passwd     => 1,
         _read_shadow     => $detail ? 2:0,
         with_field_names => $wfn,
@@ -496,7 +518,7 @@ sub get_user {
         unless defined($user) xor defined($uid);
 
     _routine(
-        @_,
+        %args,
         _read_passwd     => 1,
         _read_shadow     => 2,
         with_field_names => $wfn,
@@ -551,7 +573,7 @@ sub list_groups {
     my $wfn    = $args{with_field_names} // ($detail ? 1:0);
 
     _routine(
-        @_,
+        %args,
         _read_group      => 1,
         _read_gshadow    => $detail ? 2:0,
         with_field_names => $wfn,
@@ -620,7 +642,7 @@ sub get_group {
         unless defined($gn) xor defined($gid);
 
     _routine(
-        @_,
+        %args,
         _read_group      => 1,
         _read_gshadow    => 2,
         with_field_names => $wfn,
@@ -656,7 +678,7 @@ $SPEC{get_max_uid} = {
 sub get_max_uid {
     my %args  = @_;
     _routine(
-        @_,
+        %args,
         _read_passwd     => 1,
         detail           => 0,
         with_field_names => 0,
@@ -684,7 +706,7 @@ sub get_max_gid {
 
     my %args  = @_;
     _routine(
-        @_,
+        %args,
         _read_group      => 1,
         detail           => 0,
         with_field_names => 0,
@@ -695,6 +717,135 @@ sub get_max_gid {
                 map {$_->[2]} @$group
             )];
             $stash->{exit}++;
+            [200];
+        },
+    );
+}
+
+sub _enc_pass {
+    require UUID::Random;
+    require Digest::MD5;
+
+    my $pass = shift;
+    my $salt = substr(Digest::MD5::md5_base64(UUID::Random::generate()), 0, 8);
+    crypt($pass, '$6$'.$salt.'$');
+}
+
+sub _add_group_or_user {
+    my ($which, %args) = @_;
+
+    # TMP,schema
+    my ($user, $gn);
+    if ($which eq 'user') {
+        $user = $args{user} or return [400, "Please specify user"];
+        $user =~ $re_user or return [400, "Invalid user, please use $re_user"];
+        $gn = $user;
+    }
+    $gn //= $args{group};
+    $gn or return [400, "Please specify group"];
+    $gn =~ $re_group or return [400, "Invalid group, please use $re_group"];
+
+    my $gid     = $args{gid};
+    my $min_gid = $args{min_gid} // 1000;
+    my $max_gid = $args{max_gid} // 65535;
+    my $members;
+    if ($which eq 'group') {
+        $members = $args{members};
+        if ($members && ref($members) eq 'ARRAY') {
+            $members = join(",",@$members);
+        }
+        $members //= "";
+        $members =~ $re_field
+            or return [400, "Invalid members, please use $re_field"];
+    } else {
+        $members = "$user";
+    }
+
+    my ($uid, $min_uid, $max_uid);
+    my ($pass, $gecos, $home, $shell);
+    my ($encpass, $last_pwchange, $min_pass_age, $max_pass_age,
+        $pass_warn_period, $pass_inactive_period, $expire_date);
+    if ($which eq 'user') {
+        $uid = $args{uid};
+        $min_uid = $args{min_uid} // 1000;
+        $max_uid = $args{max_uid} // 65535;
+
+        $pass = $args{pass} // "";
+        if ($pass !~ $re_field) { return [400, "Invalid pass"] }
+
+        $gecos = $args{gecos} // "";
+        if ($gecos !~ $re_field) { return [400, "Invalid gecos"] }
+
+        $home = $args{home} // "";
+        if ($home !~ $re_field) { return [400, "Invalid home"] }
+
+        $shell = $args{shell} // "";
+        if ($shell !~ $re_field) { return [400, "Invalid shell"] }
+
+        $encpass = $args{encpass} // ($pass eq '' ? '*' : _enc_pass($pass));
+        if ($encpass !~ $re_field) { return [400, "Invalid encpass"] }
+
+        $last_pwchange = int($args{last_pwchange} // time()/86400);
+        $min_pass_age  = int($args{min_pass_age} // 0);
+        $max_pass_age  = int($args{max_pass_age} // 99999);
+        $pass_warn_period = int($args{max_pass_age} // 7);
+        $pass_inactive_period = $args{pass_inactive_period} // "";
+        if ($pass_inactive_period !~ $re_field) {
+            return [400, "Invalid pass_inactive_period"] }
+        $expire_date = $args{expire_date} // "";
+        if ($expire_date !~ $re_field) { return [400, "Invalid expire_date"] }
+    }
+
+    _routine(
+        %args,
+        _lock            => 1,
+        _write_group     => 1,
+        _write_gshadow   => 1,
+        _write_passwd    => $which eq 'user',
+        _write_shadow    => $which eq 'user',
+        _after_read      => sub {
+            my $stash = shift;
+
+            my $group   = $stash->{group};
+            my $gshadow = $stash->{gshadow};
+            return [412, "Group $gn already exists"]
+                if first { $_->[0] eq $gn } @$group;
+            my @gids = map { $_->[2] } @$group;
+            if (defined $gid) {
+                return [412, "GID $gid already exists"] if $gid ~~ @gids;
+            } else {
+                for ($min_gid .. $max_gid) {
+                    do { $gid = $_; last } unless $_ ~~ @gids;
+                }
+                return [412, "Can't find available GID"] unless defined($gid);
+            }
+            my $r = {gid=>$gid};
+            push @$group  , [$gn, "x", $gid, $members];
+            push @$gshadow, [$gn, "*", "", ""];
+
+            if ($which eq 'user') {
+                my $passwd  = $stash->{passwd};
+                my $shadow  = $stash->{shadow};
+                return [412, "User $gn already exists"]
+                    if first { $_->[0] eq $user } @$passwd;
+                my @uids = map { $_->[2] } @$passwd;
+                if (defined $uid) {
+                    return [412, "UID $gid already exists"] if $uid ~~ @uids;
+                } else {
+                    for ($min_uid .. $max_uid) {
+                        do { $uid = $_; last } unless $_ ~~ @uids;
+                    }
+                    return [412, "Can't find available UID"]
+                        unless defined($uid);
+                }
+                $r->{uid} = $uid;
+                push @$passwd, [$user, "x", $uid, $gid, $gecos, $home, $shell];
+                push @$shadow, [$user, $encpass, $last_pwchange, $min_pass_age,
+                                $max_pass_age, $pass_warn_period,
+                                $pass_inactive_period, $expire_date, ""];
+            }
+
+            $stash->{res} = [200, "OK", $r];
             [200];
         },
     );
@@ -727,50 +878,49 @@ $SPEC{add_group} = {
     },
 };
 sub add_group {
-    my %args = @_;
+    _add_group_or_user('group', @_);
+}
 
-    # TMP,schema
-    my $gn = $args{group} or return [400, "Please specify group"];
-    $gn =~ $re_group or return [400, "Invalid group, please use $re_group"];
-    my $gid     = $args{gid};
-    my $min_gid = $args{min_gid} // 1000;
-    my $max_gid = $args{max_gid} // 65535;
-    my $members = $args{members};
-    if ($members && ref($members) eq 'ARRAY') { $members = join(",",@$members) }
-    $members //= "";
-    $members =~ $re_field
-        or return [400, "Invalid members, please use $re_field"];
-
-    _routine(
-        @_,
-        _lock            => 1,
-        _write_group     => 1,
-        _write_gshadow   => 1,
-        _after_read      => sub {
-            my $stash = shift;
-            my $group   = $stash->{group};
-            my $gshadow = $stash->{gshadow};
-
-            return [412, "Group $gn already exists"]
-                if first { $_->[0] eq $gn } @$group;
-
-            my @gids = map { $_->[2] } @$group;
-            if (defined $gid) {
-                return [412, "GID $gid already exists"] if $gid ~~ @gids;
-            } else {
-                for ($min_gid .. $max_gid) {
-                    do { $gid = $_; last } unless $_ ~~ @gids;
-                }
-                return [412, "Can't find available GID"] unless defined($gid);
-            }
-
-            push @$group  , [$gn, "x", $gid, $members];
-            push @$gshadow, [$gn, "!", "", ""];
-            $stash->{res} = [200, "OK", {gid=>$gid}];
-
-            [200];
+$SPEC{add_user} = {
+    v => 1.1,
+    summary => 'Add a new user',
+    args => {
+        %common_args,
+        group => {
+            req => 1,
         },
-    );
+        gid => {
+            summary => 'Pick a specific new GID',
+            req => 0,
+        },
+        min_gid => {
+            summary => 'Pick a range for new GID',
+            req => 0,
+        },
+        max_gid => {
+            summary => 'Pick a range for new GID',
+            req => 0,
+        },
+        uid => {
+            summary => 'Pick a specific new UID',
+            req => 0,
+        },
+        min_uid => {
+            summary => 'Pick a range for new UID',
+            req => 0,
+        },
+        max_uid => {
+            summary => 'Pick a range for new UID',
+            req => 0,
+        },
+        map( {($_=>$passwd_fields{$_})} qw/pass gecos home shell/),
+        map( {($_=>$shadow_fields{$_})}
+                 qw/encpass last_pwchange min_pass_age max_pass_age
+                   pass_warn_period pass_inactive_period expire_date/),
+    },
+};
+sub add_user {
+    _add_group_or_user('user', @_);
 }
 
 1;
@@ -792,7 +942,7 @@ sub add_group {
  $res = get_user(user=>"neil");  # [404, "Not found"]
 
  # adding user/group, by default adding user will also add a group with the same
- # name, unless using add_group=>0
+ # name
  $res = add_user (user =>"steven", ...); # [200, "OK", {uid=>540, gid=>541}]
  $res = add_group(group=>"steven", ...); # [412, "Group already exists"]
 

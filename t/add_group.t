@@ -67,7 +67,7 @@ subtest "success" => sub {
     is($res->[0], 200, "status");
     is_deeply($res->[2], {
         'admins' => '',
-        'encpass' => '!',
+        'encpass' => '*',
         'gid' => '1002',
         'group' => 'foo',
         'members' => 'a,b',
