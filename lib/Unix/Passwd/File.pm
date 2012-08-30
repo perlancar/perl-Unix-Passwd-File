@@ -204,6 +204,7 @@ sub _routine {
         # read files
 
         my @shadow;
+        my %shadow;
         my @shadowh;
         $stash{shadow}   = \@shadow;
         $stash{shadowh}  = \@shadowh;
@@ -220,6 +221,7 @@ sub _routine {
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %shadow_fields);
                 push @shadow, \@r;
+                $shadow{$r[0]} = \@r;
                 if ($wfn) {
                     my %r;
                     @r{@shadow_field_names} = @r;
@@ -244,6 +246,8 @@ sub _routine {
                 if ($wfn) {
                     my %r;
                     @r{@passwd_field_names} = @r;
+                    @r{@shadow_field_names} = @{ $shadow{$r[0]} }
+                        if $shadow{$r[0]};
                     push @passwdh, \%r;
                 }
                 if ($args{_after_read_passwd_entry}) {
@@ -255,6 +259,7 @@ sub _routine {
         }
 
         my @gshadow;
+        my %gshadow;
         my @gshadowh;
         $stash{gshadow}  = \@gshadow;
         $stash{gshadowh} = \@gshadowh;
@@ -271,6 +276,7 @@ sub _routine {
                 next unless /\S/; # skip empty line
                 my @r = split /:/, $_, scalar(keys %gshadow_fields);
                 push @gshadow, \@r;
+                $gshadow{$r[0]} = \@r;
                 if ($wfn) {
                     my %r;
                     @r{@gshadow_field_names} = @r;
@@ -294,7 +300,9 @@ sub _routine {
                 push @group, \@r;
                 if ($wfn) {
                     my %r;
-                    @r{@group_field_names} = @r;
+                    @r{@group_field_names}   = @r;
+                    @r{@gshadow_field_names} = @{ $gshadow{$r[0]} }
+                        if $gshadow{$r[0]};
                     push @grouph, \%r;
                 }
             }

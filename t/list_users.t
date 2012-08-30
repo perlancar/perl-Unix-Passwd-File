@@ -38,7 +38,16 @@ subtest "detail=1" => sub {
         shell => "/bin/bash",
         uid => 0,
         user => "root",
-    });
+
+        encpass => "*",
+        expire_date => "",
+        last_pwchange => 14607,
+        max_pass_age => 99999,
+        min_pass_age => 0,
+        pass_inactive_period => "",
+        pass_warn_period => 7,
+        reserved => "",
+    }) or diag explain $res;
 };
 
 subtest "detail=1, with_field_names=>0" => sub {
