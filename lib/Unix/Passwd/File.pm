@@ -3,6 +3,7 @@ package Unix::Passwd::File;
 use 5.010;
 use strict;
 use warnings;
+use Log::Any '$log';
 
 # VERSION
 
@@ -159,11 +160,24 @@ my %gshadow_fields = (
 my @gshadow_field_names;
 for (keys %gshadow_fields) {$gshadow_field_names[$gshadow_fields{$_}{index}]=$_}
 
-# _read_shadow  = 0/1/2 (2 means optional, don't exit if fail)
-# _read_passwd  = 0/1
-# _read_gshadow = 0/1/2 (2 means optional, don't exit if fail)
-# _read_group   = 0/1
-# _lock         = 0/1 (whether to lock)
+# all public functions in this module uses the _routine, which contains the
+# basic flow, to avoid duplication of code. _routine accept these special
+# arguments for flow control:
+#
+# - _read_shadow  = 0*/1/2 (2 means optional, don't exit if fail)
+# - _read_passwd  = 0*/1
+# - _read_gshadow = 0*/1/2 (2 means optional, don't exit if fail)
+# - _read_group   = 0*/1
+# - _lock         = 0*/1 (whether to lock)
+# - _after_read   = code (executed after reading all passwd/group files)
+# - _after_read_passwd_entry = code (executed after reading a line in passwd)
+#
+# all the hooks are fed $stash, sort of like a bag or object containing all
+# data. should return enveloped response. _routine will return with response if
+# response is non success. _routine will also return immediately if $stash{exit}
+# is set.
+#
+# final result is in $stash{res} or non-success result returned by hook.
 sub _routine {
     my %args = @_;
 
@@ -191,27 +205,35 @@ sub _routine {
 
         my @shadow;
         my @shadowh;
-        if ($args{_read_shadow} // 1) {
-            if ($detail) {
-                open $fh, "<", "$etc/shadow"
-                    or return [500, "Can't open $etc/shadow: $!"];
-                while (<$fh>) {
-                    chomp;
-                    next unless /\S/; # skip empty line
-                    my @r = split /:/, $_, scalar(keys %shadow_fields);
-                    push @shadow, \@r;
-                    if ($wfn) {
-                        my %r;
-                        @r{@shadow_field_names} = @r;
-                        push @shadowh, \%r;
-                    }
+        $stash{shadow}   = \@shadow;
+        $stash{shadowh}  = \@shadowh;
+        if ($args{_read_shadow}) {
+            unless (open $fh, "<", "$etc/shadow") {
+                if ($args{_read_shadow} == 2) {
+                    goto L1;
+                } else {
+                    return [500, "Can't open $etc/shadow: $!"];
+                }
+            }
+            while (<$fh>) {
+                chomp;
+                next unless /\S/; # skip empty line
+                my @r = split /:/, $_, scalar(keys %shadow_fields);
+                push @shadow, \@r;
+                if ($wfn) {
+                    my %r;
+                    @r{@shadow_field_names} = @r;
+                    push @shadowh, \%r;
                 }
             }
         }
 
+      L1:
         my @passwd;
         my @passwdh;
-        if ($args{_read_passwd} // 1) {
+        $stash{passwd}   = \@passwd;
+        $stash{passwdh}  = \@passwdh;
+        if ($args{_read_passwd}) {
             open $fh, "<", "$etc/passwd"
                 or return [500, "Can't open $etc/passwd: $!"];
             while (<$fh>) {
@@ -224,14 +246,26 @@ sub _routine {
                     @r{@passwd_field_names} = @r;
                     push @passwdh, \%r;
                 }
+                if ($args{_after_read_passwd_entry}) {
+                    my $res = $args{_after_read_passwd_entry}->(\%stash);
+                    return $res if $res->[0] != 200;
+                    return if $stash{exit};
+                }
             }
         }
 
         my @gshadow;
         my @gshadowh;
-        if ($args{_read_gshadow} // 1) {
-            open $fh, "<", "$etc/gshadow"
-                or return [500, "Can't open $etc/gshadow: $!"];
+        $stash{gshadow}  = \@gshadow;
+        $stash{gshadowh} = \@gshadowh;
+        if ($args{_read_gshadow}) {
+            unless (open $fh, "<", "$etc/gshadow") {
+                if ($args{_read_gshadow} == 2) {
+                    goto L2;
+                } else {
+                    return [500, "Can't open $etc/gshadow: $!"];
+                }
+            }
             while (<$fh>) {
                 chomp;
                 next unless /\S/; # skip empty line
@@ -245,9 +279,12 @@ sub _routine {
             }
         }
 
+      L2:
         my @group;
         my @grouph;
-        if ($args{_read_group} // 1) {
+        $stash{group}    = \@group;
+        $stash{grouph}   = \@grouph;
+        if ($args{_read_group}) {
             open $fh, "<", "$etc/group"
                 or return [500, "Can't open $etc/group: $!"];
             while (<$fh>) {
@@ -262,15 +299,6 @@ sub _routine {
                 }
             }
         }
-
-        $stash{shadow}   = \@shadow;
-        $stash{shadowh}  = \@shadowh;
-        $stash{passwd}   = \@passwd;
-        $stash{passwdh}  = \@passwdh;
-        $stash{group}    = \@group;
-        $stash{grouph}   = \@grouph;
-        $stash{gshadow}  = \@gshadow;
-        $stash{gshadowh} = \@gshadowh;
 
         if ($args{_after_read}) {
             my $res = $args{_after_read}->(\%stash);
@@ -299,6 +327,7 @@ $SPEC{list_users} = {
         },
         with_field_names => {
             summary => 'If false, don\'t return hash for each entry',
+            schema => [bool => {default=>1}],
             description => <<'_',
 
 By default, when `detail=>1`, a hashref is returned for each entry containing
@@ -317,8 +346,8 @@ sub list_users {
 
     _routine(
         @_,
+        _read_passwd     => 1,
         _read_shadow     => $detail ? 2:0,
-        _read_gshadow    => $detail ? 2:0,
         with_field_names => $wfn,
         _after_read      => sub {
             my $stash = shift;
@@ -326,6 +355,8 @@ sub list_users {
             my @rows;
             my $passwd  = $stash->{passwd};
             my $passwdh = $stash->{passwdh};
+            my $shadow  = $stash->{shadow};
+            my $shadowh = $stash->{shadowh};
 
             for (my $i=0; $i < @$passwd; $i++) {
                 if (!$detail) {
@@ -341,6 +372,71 @@ sub list_users {
 
             $stash->{exit}++;
             [200, "OK"];
+        },
+    );
+}
+
+$SPEC{get_user} = {
+    v => 1.1,
+    summary => 'Get user details by username or uid',
+    description => <<'_',
+
+Either `user` OR `uid` must be specified.
+
+The function is not dissimilar to Unix's `getpwnam()` or `getpwuid()`.
+
+_
+    args => {
+        user => {
+            schema => 'str',
+        },
+        uid => {
+            schema => 'int',
+        },
+        with_field_names => {
+            summary => 'If false, don\'t return hash',
+            schema => [bool => {default=>1}],
+            description => <<'_',
+
+By default, a hashref is returned containing field names and its values, e.g.
+`{user=>"neil", pass=>"x", uid=>500, ...}`. With `with_field_names=>0`, an
+arrayref is returned instead: `["neil", "x", 500, ...]`.
+
+_
+        },
+    },
+};
+sub get_user {
+    my %args = @_;
+    my $wfn  = $args{with_field_names} // 1;
+    my $user = $args{user};
+    my $uid  = $args{uid};
+    return [400, "Please specify user OR uid"]
+        unless defined($user) xor defined($uid);
+
+    _routine(
+        @_,
+        _read_passwd     => 1,
+        _read_shadow     => 2,
+        with_field_names => 1,
+        detail           => 1,
+        _after_read_passwd_entry => sub {
+            my $stash = shift;
+
+            my @rows;
+            my $passwd  = $stash->{passwd};
+            my $passwdh = $stash->{passwdh};
+
+            if (defined($user) && $passwd->[-1][0] eq $user ||
+                    defined($uid) && $passwd->[-1][2] == $uid) {
+                $stash->{res} = [200,"OK", $wfn ? $passwdh->[-1]:$passwd->[-1]];
+                $stash->{exit}++;
+            }
+            [200, "OK"];
+        },
+        _after_read => sub {
+            my $stash = shift;
+            [404, "Not found"];
         },
     );
 }
