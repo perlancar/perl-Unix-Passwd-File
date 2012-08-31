@@ -25,6 +25,7 @@ our @EXPORT_OK = qw(
                        get_user
                        get_user_groups
                        group_exists
+                       is_member
                        list_groups
                        list_users
                        modify_group
@@ -32,9 +33,6 @@ our @EXPORT_OK = qw(
                        set_user_password
                        user_exists
                );
-
-# is_member(user => 'foo', group => 'bar')
-# has_member (alias is_member)
 
 our %SPEC;
 
@@ -768,7 +766,7 @@ $SPEC{group_exists} = {
     },
     result_naked => 1,
     result => {
-        schema => 'bool*',
+        schema => 'bool',
     },
 };
 sub group_exists {
@@ -849,6 +847,34 @@ sub get_user_groups {
             [200];
         },
     );
+}
+
+$SPEC{is_member} = {
+    v => 1.1,
+    summary => 'Check whether user is member of a group',
+    args => {
+        %common_args,
+        user => {
+            req => 1,
+        },
+        group => {
+            req => 1,
+        },
+    },
+    result_naked => 1,
+    result => {
+        schema => 'bool',
+    },
+};
+sub is_member {
+    my %args = @_;
+    my $user  = $args{user}  or return undef;
+    my $group = $args{group} or return undef;
+    my $res = get_group(etc_dir=>$args{etc_dir}, group=>$group);
+    $log->errorf("res=%s", $res);
+    return undef unless $res->[0] == 200;
+    my @mm = split /,/, $res->[2]{members};
+    return $user ~~ @mm ? 1:0;
 }
 
 $SPEC{get_max_uid} = {
