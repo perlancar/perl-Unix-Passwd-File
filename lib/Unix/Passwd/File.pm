@@ -188,7 +188,8 @@ my %gshadow_fields = (
         index => 3,
         schema  => ['str*' => {match => $re_field}],
         summary => 'List of usernames that are members of this group, '.
-            'separated by commas; usually empty since this is already in group',
+            'separated by commas; You should use the same list of users as in '.
+                '/etc/group.',
     },
 );
 my @gshadow_field_names;
@@ -821,7 +822,7 @@ sub _add_group_or_user {
             }
             my $r = {gid=>$gid};
             push @$group  , [$gn, "x", $gid, $members];
-            push @$gshadow, [$gn, "*", "", ""];
+            push @$gshadow, [$gn, "*", "", $members];
 
             if ($which eq 'user') {
                 my $passwd  = $stash->{passwd};

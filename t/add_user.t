@@ -8,6 +8,7 @@ use FindBin '$Bin';
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
+use File::Slurp;
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_user get_user);
 use Test::More 0.96;
@@ -49,12 +50,20 @@ subtest "success" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
     my $res = add_user(etc_dir=>"$tmpdir/simple",
                        user=>"foo", home=>"/home/foo", shell=>"/bin/bash",
+                       last_pwchange => 15583,
                    );
     is($res->[0], 200, "status");
     is_deeply($res->[2], {uid=>1002, gid=>1002}, "res") or diag explain $res;
 
     $res = get_user(etc_dir=>"$tmpdir/simple", user=>"foo");
     is($res->[2]{encpass}, '*', "encpass");
+
+    # check that other entries, whitespace, etc are not being mangled.
+    for (qw/passwd shadow group gshadow/) {
+        is(scalar(read_file "$tmpdir/simple/$_"),
+           scalar(read_file "$Bin/data/simple-after-add_user-foo/$_"),
+           "compare file $_");
+    }
 };
 
 subtest "set pass" => sub {
