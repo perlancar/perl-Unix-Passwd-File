@@ -13,6 +13,8 @@ use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_user get_user);
 use Test::More 0.96;
 
+my @files = qw(passwd shadow group gshadow);
+
 my $tmpdir = tempdir(CLEANUP=>1);
 $CWD = $tmpdir;
 note "tmpdir=$tmpdir";
@@ -59,17 +61,22 @@ subtest "success" => sub {
     is($res->[2]{encpass}, '*', "encpass");
 
     # check that other entries, whitespace, etc are not being mangled.
-    for (qw/passwd shadow group gshadow/) {
+    for (@files) {
         is(scalar(read_file "$tmpdir/simple/$_"),
            scalar(read_file "$Bin/data/simple-after-add_user-foo/$_"),
            "compare file $_");
     }
+
+    for (@files) {
+        ok(!(-f "$tmpdir/simple/$_.bak"), "backup file $_.bak not created");
+    }
 };
 
-subtest "set pass" => sub {
+subtest "backup, set pass" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
     my $res = add_user(etc_dir=>"$tmpdir/simple",
                        user=>"foo", pass=>"123",
+                       backup => 1,
                    );
     is($res->[0], 200, "status");
     is_deeply($res->[2], {uid=>1002, gid=>1002}, "res") or diag explain $res;
@@ -77,6 +84,10 @@ subtest "set pass" => sub {
     $res = get_user(etc_dir=>"$tmpdir/simple", user=>"foo");
     is($res->[2]{pass}, 'x', "pass");
     like($res->[2]{encpass}, qr/^\$6\$/, "encpass");
+
+    for (@files) {
+        ok((-f "$tmpdir/simple/$_.bak"), "backup file $_.bak created");
+    }
 };
 
 subtest "uid" => sub {

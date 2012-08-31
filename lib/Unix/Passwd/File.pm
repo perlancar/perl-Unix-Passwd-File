@@ -29,6 +29,18 @@ my %common_args = (
         schema  => ['str*' => {default=>'/etc'}],
     },
 );
+my %write_args = (
+    backup => {
+        summary => 'Whether to backup when modifying files',
+        description => <<'_',
+
+Backup is written with C<.bak> extension in the same directory. Unmodified file
+will not be backed up. Previous backup will be overwritten.
+
+_
+        schema  => ['bool' => {default=>0}],
+    },
+);
 
 my $re_user  = qr/\A[A-Za-z0-9._-]+\z/;
 my $re_group = $re_user;
@@ -196,6 +208,16 @@ my @gshadow_field_names;
 for (keys %gshadow_fields) {
     $gshadow_field_names[$gshadow_fields{$_}{index}] = $_;
     delete $gshadow_fields{$_}{index};
+}
+
+sub _backup {
+    my ($fh, $path) = @_;
+    seek $fh, 0, 0 or return [500, "Can't seek: $!"];
+    open my($bak), ">", "$path.bak" or return [500, "Can't open $path.bak: $!"];
+    while (<$fh>) { print $bak $_ }
+    close $bak or return [500, "Can't write $path.bak: $!"];
+    # XXX set ctime & mtime of backup file?
+    [200];
 }
 
 # all public functions in this module uses the _routine, which contains the
@@ -373,6 +395,10 @@ sub _routine {
         # write files
 
         if ($args{_write_shadow} && ($stash{write_shadow}//1)) {
+            if ($args{backup}) {
+                my $res = _backup($fhs, "$etc/shadow");
+                return $res if $res->[0] != 200;
+            }
             seek $fhs, 0, 0 or return [500, "Can't seek in $etc/shadow: $!"];
             for (@shadow) {
                 print $fhs join(":", map {$_//""} @$_), "\n";
@@ -383,6 +409,10 @@ sub _routine {
         }
 
         if ($args{_write_passwd} && ($stash{write_passwd}//1)) {
+            if ($args{backup}) {
+                my $res = _backup($fhp, "$etc/passwd");
+                return $res if $res->[0] != 200;
+            }
             seek $fhp, 0, 0 or return [500, "Can't seek in $etc/passwd: $!"];
             for (@passwd) {
                 print $fhp join(":", map {$_//""} @$_), "\n";
@@ -393,6 +423,10 @@ sub _routine {
         }
 
         if ($args{_write_gshadow} && ($stash{write_gshadow}//1)) {
+            if ($args{backup}) {
+                my $res = _backup($fhgs, "$etc/gshadow");
+                return $res if $res->[0] != 200;
+            }
             seek $fhgs, 0, 0 or return [500, "Can't seek in $etc/gshadow: $!"];
             for (@gshadow) {
                 print $fhgs join(":", map {$_//""} @$_), "\n";
@@ -403,6 +437,10 @@ sub _routine {
         }
 
         if ($args{_write_group} && ($stash{write_group}//1)) {
+            if ($args{backup}) {
+                my $res = _backup($fhg, "$etc/group");
+                return $res if $res->[0] != 200;
+            }
             seek $fhg, 0, 0 or return [500, "Can't seek in $etc/group: $!"];
             for (@group) {
                 print $fhg join(":", map {$_//""} @$_), "\n";
@@ -863,6 +901,7 @@ $SPEC{add_group} = {
     summary => 'Add a new group',
     args => {
         %common_args,
+        %write_args,
         group => {
             req => 1,
         },
@@ -893,6 +932,7 @@ $SPEC{add_user} = {
     summary => 'Add a new user',
     args => {
         %common_args,
+        %write_args,
         group => {
             req => 1,
         },
@@ -1029,6 +1069,7 @@ $SPEC{delete_group} = {
     summary => 'Delete a group',
     args => {
         %common_args,
+        %write_args,
         group => {
             req => 1,
         },
@@ -1043,6 +1084,7 @@ $SPEC{delete_user} = {
     summary => 'Delete a user',
     args => {
         %common_args,
+        %write_args,
         user => {
             req => 1,
         },

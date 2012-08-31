@@ -56,6 +56,8 @@ subtest "already deleted, noop" => sub {
     rcopy("$Bin/data/simple-after-add_user-foo", "$tmpdir/simple");
     my $res = delete_user(etc_dir=>"$tmpdir/simple", user=>"foo");
     is($res->[0], 200, "status");
+
+    # XXX test: backup is not written if file is not modified
 };
 
 DONE_TESTING:
