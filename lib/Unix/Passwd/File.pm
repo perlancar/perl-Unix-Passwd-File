@@ -28,6 +28,7 @@ our @EXPORT_OK = qw(
                        is_member
                        list_groups
                        list_users
+                       list_users_and_groups
                        modify_group
                        modify_user
                        set_user_password
@@ -748,6 +749,77 @@ sub get_group {
         _after_read => sub {
             my $stash = shift;
             [404, "Not found"];
+        },
+    );
+}
+
+$SPEC{list_users_and_groups} = {
+    v => 1.1,
+    summary => 'List Unix users and groups in passwd/group files',
+    description => <<'_',
+
+This is basically `list_users()` and `list_groups()` combined, so you can get
+both data in a single call. Data is returned in an array. Users list is in the
+first element, groups list in the second.
+
+_
+    args => {
+        %common_args,
+        detail => {
+            summary => 'If true, return all fields instead of just names',
+            schema => ['bool' => {default => 0}],
+        },
+        with_field_names => {
+            summary => 'If false, don\'t return hash for each entry',
+            schema => [bool => {default=>1}],
+        },
+    },
+};
+sub list_users_and_groups {
+    my %args = @_;
+    my $detail = $args{detail};
+    my $wfn    = $args{with_field_names} // ($detail ? 1:0);
+
+    _routine(
+        %args,
+        _read_passwd     => 1,
+        _read_shadow     => $detail ? 2:0,
+        _read_group      => 1,
+        _read_gshadow    => $detail ? 2:0,
+        with_field_names => $wfn,
+        _after_read      => sub {
+            my $stash = shift;
+
+            my @users;
+            my $passwd  = $stash->{passwd};
+            my $passwdh = $stash->{passwdh};
+            for (my $i=0; $i < @$passwd; $i++) {
+                if (!$detail) {
+                    push @users, $passwd->[$i][0];
+                } elsif ($wfn) {
+                    push @users, $passwdh->[$i];
+                } else {
+                    push @users, $passwd->[$i];
+                }
+            }
+
+            my @groups;
+            my $group   = $stash->{group};
+            my $grouph  = $stash->{grouph};
+            for (my $i=0; $i < @$group; $i++) {
+                if (!$detail) {
+                    push @groups, $group->[$i][0];
+                } elsif ($wfn) {
+                    push @groups, $grouph->[$i];
+                } else {
+                    push @groups, $group->[$i];
+                }
+            }
+
+            $stash->{res} = [200, "OK", [\@users, \@groups]];
+
+            $stash->{exit}++;
+            [200];
         },
     );
 }
