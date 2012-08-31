@@ -1,6 +1,17 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.05     2012-08-31 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - Add list_users_and_groups() function.
+
+         - Add some overview information about the module.
+
+
 0.04     2012-08-31 (SHARYANTO)
+
+         [ENHANCEMENTS]
 
          - add_user(): Add option 'group' to allow setting primary group that is
            not the same as group with the same name as user (e.g.
