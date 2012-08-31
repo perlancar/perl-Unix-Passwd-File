@@ -221,7 +221,9 @@ for (keys %gshadow_fields) {
 # is set.
 #
 # to write, we open once but with mode +< instead of <. we read first then we
-# seek back to beginning and write from in-memory data.
+# seek back to beginning and write from in-memory data. if
+# $stash{write_passwd} and so on is set to false, routine cancel the write
+# (can be used e.g. when there is no change so no need to write).
 #
 # final result is in $stash{res} or non-success result returned by hook.
 sub _routine {
@@ -370,38 +372,42 @@ sub _routine {
 
         # write files
 
-        if ($args{_write_shadow}) {
+        if ($args{_write_shadow} && ($stash{write_shadow}//1)) {
             seek $fhs, 0, 0 or return [500, "Can't seek in $etc/shadow: $!"];
             for (@shadow) {
                 print $fhs join(":", map {$_//""} @$_), "\n";
             }
+            truncate $fhs, tell($fhs);
             close $fhs or return [500, "Can't close $etc/shadow: $!"];
             chmod 0640, "$etc/shadow"; # check error?
         }
 
-        if ($args{_write_passwd}) {
+        if ($args{_write_passwd} && ($stash{write_passwd}//1)) {
             seek $fhp, 0, 0 or return [500, "Can't seek in $etc/passwd: $!"];
             for (@passwd) {
                 print $fhp join(":", map {$_//""} @$_), "\n";
             }
+            truncate $fhp, tell($fhp);
             close $fhp or return [500, "Can't close $etc/passwd: $!"];
             chmod 0644, "$etc/passwd"; # check error?
         }
 
-        if ($args{_write_gshadow}) {
+        if ($args{_write_gshadow} && ($stash{write_gshadow}//1)) {
             seek $fhgs, 0, 0 or return [500, "Can't seek in $etc/gshadow: $!"];
             for (@gshadow) {
                 print $fhgs join(":", map {$_//""} @$_), "\n";
             }
+            truncate $fhgs, tell($fhgs);
             close $fhgs or return [500, "Can't close $etc/gshadow: $!"];
             chmod 0640, "$etc/gshadow"; # check error?
         }
 
-        if ($args{_write_group}) {
+        if ($args{_write_group} && ($stash{write_group}//1)) {
             seek $fhg, 0, 0 or return [500, "Can't seek in $etc/group: $!"];
             for (@group) {
                 print $fhg join(":", map {$_//""} @$_), "\n";
             }
+            truncate $fhg, tell($fhg);
             close $fhg or return [500, "Can't close $etc/group: $!"];
             chmod 0644, "$etc/group"; # check error?
         }
@@ -924,6 +930,128 @@ sub add_user {
     _add_group_or_user('user', @_);
 }
 
+sub _delete_group_or_user {
+    my ($which, %args) = @_;
+
+    # TMP,schema
+    my ($user, $gn);
+    if ($which eq 'user') {
+        $user = $args{user} or return [400, "Please specify user"];
+        $gn = $user;
+    }
+    $gn //= $args{group};
+    $gn or return [400, "Please specify group"];
+
+    _routine(
+        %args,
+        _lock            => 1,
+        _write_group     => 1,
+        _write_gshadow   => 1,
+        _write_passwd    => $which eq 'user',
+        _write_shadow    => $which eq 'user',
+        _after_read      => sub {
+            my $stash = shift;
+            my ($i, $changed);
+
+            my $group = $stash->{group};
+            $changed = 0; $i = 0;
+            while ($i < @$group) {
+                if ($which eq 'user') {
+                    # also delete all mention of the user in any group
+                    my @mm = split /,/, $group->[$i][3];
+                    if ($user ~~ @mm) {
+                        $changed++;
+                        $group->[$i][3] = join(",", grep {$_ ne $user} @mm);
+                    }
+                }
+                if ($group->[$i][0] eq $gn) {
+                    $changed++;
+                    splice @$group, $i, 1; $i--;
+                }
+                $i++;
+            }
+            $stash->{write_group} = 0 unless $changed;
+
+            my $gshadow = $stash->{gshadow};
+            $changed = 0; $i = 0;
+            while ($i < @$gshadow) {
+                if ($which eq 'user') {
+                    # also delete all mention of the user in any group
+                    my @mm = split /,/, $gshadow->[$i][3];
+                    if ($user ~~ @mm) {
+                        $changed++;
+                        $gshadow->[$i][3] = join(",", grep {$_ ne $user} @mm);
+                    }
+                }
+                if ($gshadow->[$i][0] eq $gn) {
+                    $changed++;
+                    splice @$gshadow, $i, 1; $i--;
+                    last;
+                }
+                $i++;
+            }
+            $stash->{write_gshadow} = 0 unless $changed;
+
+            if ($which eq 'user') {
+                my $passwd = $stash->{passwd};
+                $changed = 0; $i = 0;
+                while ($i < @$passwd) {
+                    if ($passwd->[$i][0] eq $user) {
+                        $changed++;
+                        splice @$passwd, $i, 1; $i--;
+                        last;
+                    }
+                    $i++;
+                }
+                $stash->{write_passwd} = 0 unless $changed;
+
+                my $shadow = $stash->{shadow};
+                $changed = 0; $i = 0;
+                while ($i < @$shadow) {
+                    if ($shadow->[$i][0] eq $user) {
+                        $changed++;
+                        splice @$shadow, $i, 1; $i--;
+                        last;
+                    }
+                    $i++;
+                }
+                $stash->{write_shadow} = 0 unless $changed;
+            }
+
+            $stash->{res} = [200, "OK"];
+            [200];
+        },
+    );
+}
+
+$SPEC{delete_group} = {
+    v => 1.1,
+    summary => 'Delete a group',
+    args => {
+        %common_args,
+        group => {
+            req => 1,
+        },
+    },
+};
+sub delete_group {
+    _delete_group_or_user('group', @_);
+}
+
+$SPEC{delete_user} = {
+    v => 1.1,
+    summary => 'Delete a user',
+    args => {
+        %common_args,
+        user => {
+            req => 1,
+        },
+    },
+};
+sub delete_user {
+    _delete_group_or_user('user', @_);
+}
+
 1;
 # ABSTRACT: Manipulate /etc/{passwd,shadow,group,gshadow} entries
 
@@ -955,7 +1083,7 @@ sub add_user {
  $res = modify_user(user=>"steven", home=>"/newhome/steven"); # [200, "OK"]
  $res = modify_group(group=>"neil"); # [404, "Not found"]
 
- # deleting user will also delete user's group, except using delete_group=>0
+ # deleting user will also delete user's group
  $res = delete_user(user=>"neil");
 
  # change user password
