@@ -24,12 +24,17 @@ our @EXPORT_OK = qw(
                        get_max_uid
                        get_user
                        get_user_groups
+                       group_exists
                        list_groups
                        list_users
                        modify_group
                        modify_user
                        set_user_password
+                       user_exists
                );
+
+# is_member(user => 'foo', group => 'bar')
+# has_member (alias is_member)
 
 our %SPEC;
 
@@ -600,6 +605,31 @@ sub get_user {
     );
 }
 
+$SPEC{user_exists} = {
+    v => 1.1,
+    summary => 'Check whether user exists',
+    args => {
+        %common_args,
+        user => {
+            schema => 'str*',
+        },
+        uid => {
+            schema => 'int*',
+        },
+    },
+    result_naked => 1,
+    result => {
+        schema => 'bool*',
+    },
+};
+sub user_exists {
+    my %args = @_;
+    my $res = get_user(%args);
+    if ($res->[0] == 404) { return 0 }
+    elsif ($res->[0] == 200) { return 1 }
+    else { return undef }
+}
+
 $SPEC{list_groups} = {
     v => 1.1,
     summary => 'List Unix groups in group file',
@@ -722,6 +752,31 @@ sub get_group {
             [404, "Not found"];
         },
     );
+}
+
+$SPEC{group_exists} = {
+    v => 1.1,
+    summary => 'Check whether group exists',
+    args => {
+        %common_args,
+        group => {
+            schema => 'str*',
+        },
+        gid => {
+            schema => 'int*',
+        },
+    },
+    result_naked => 1,
+    result => {
+        schema => 'bool*',
+    },
+};
+sub group_exists {
+    my %args = @_;
+    my $res = get_group(%args);
+    if ($res->[0] == 404) { return 0 }
+    elsif ($res->[0] == 200) { return 1 }
+    else { return undef }
 }
 
 $SPEC{get_user_groups} = {
