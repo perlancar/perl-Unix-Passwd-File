@@ -9,6 +9,7 @@ use Log::Any '$log';
 
 use File::Flock;
 use List::Util qw(max first);
+use List::MoreUtils qw(firstidx);
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(
@@ -42,9 +43,10 @@ _
     },
 );
 
-my $re_user  = qr/\A[A-Za-z0-9._-]+\z/;
-my $re_group = $re_user;
-my $re_field = qr/\A[^\n:]*\z/;
+my $re_user   = qr/\A[A-Za-z0-9._-]+\z/;
+my $re_group  = $re_user;
+my $re_field  = qr/\A[^\n:]*\z/;
+my $re_posint = qr/\A[1-9][0-9]*\z/;
 
 my %passwd_fields = (
     user => {
@@ -968,6 +970,193 @@ $SPEC{add_user} = {
 };
 sub add_user {
     _add_group_or_user('user', @_);
+}
+
+sub _modify_group_or_user {
+    my ($which, %args) = @_;
+
+    # TMP,schema
+    my ($user, $gn);
+    if ($which eq 'user') {
+        $user = $args{user} or return [400, "Please specify user"];
+    } else {
+        $gn = $args{group} or return [400, "Please specify group"];
+    }
+
+    if ($which eq 'user') {
+        if (defined($args{uid}) && $args{uid} !~ $re_posint) {
+            return [400, "Invalid uid"] }
+        if (defined($args{gid}) && $args{gid} !~ $re_posint) {
+            return [400, "Invalid gid"] }
+        if (defined($args{gecos}) && $args{gecos} !~ $re_field) {
+            return [400, "Invalid gecos"] }
+        if (defined($args{home}) && $args{home} !~ $re_field) {
+            return [400, "Invalid home"] }
+        if (defined($args{shell}) && $args{shell} !~ $re_field) {
+            return [400, "Invalid shell"] }
+        if (defined $args{pass}) {
+            $args{encpass} = $args{pass} eq '' ? '*' : _enc_pass($args{pass});
+            $args{pass} = "x";
+        }
+        if (defined($args{encpass}) && $args{encpass} !~ $re_field) {
+            return [400, "Invalid encpass"] }
+        if (defined($args{last_pwchange}) && $args{last_pwchange} !~ $re_posint) {
+            return [400, "Invalid last_pwchange"] }
+        if (defined($args{min_pass_age}) && $args{min_pass_age} !~ $re_posint) {
+            return [400, "Invalid min_pass_age"] }
+        if (defined($args{max_pass_age}) && $args{max_pass_age} !~ $re_posint) {
+            return [400, "Invalid max_pass_age"] }
+        if (defined($args{pass_warn_period}) && $args{pass_warn_period} !~ $re_posint) {
+            return [400, "Invalid pass_warn_period"] }
+        if (defined($args{pass_inactive_period}) &&
+                $args{pass_inactive_period} !~ $re_posint) {
+            return [400, "Invalid pass_inactive_period"] }
+        if (defined($args{expire_date}) && $args{expire_date} !~ $re_posint) {
+            return [400, "Invalid expire_date"] }
+    }
+
+    my ($gid, $members);
+    if ($which eq 'group') {
+        if (defined($args{gid}) && $args{gid} !~ $re_posint) {
+            return [400, "Invalid gid"] }
+        if (defined $args{pass}) {
+            $args{encpass} = $args{pass} eq '' ? '*' : _enc_pass($args{pass});
+            $args{pass} = "x";
+        }
+        if (defined($args{encpass}) && $args{encpass} !~ $re_field) {
+            return [400, "Invalid encpass"] }
+        if (defined $args{members}) {
+            if (ref($args{members}) eq 'ARRAY') { $args{members} = join(",",@{$args{members}}) }
+            $args{members} =~ $re_field or return [400, "Invalid members"];
+        }
+        if (defined $args{admins}) {
+            if (ref($args{admins}) eq 'ARRAY') { $args{admins} = join(",",@{$args{admins}}) }
+            $args{admins} =~ $re_field or return [400, "Invalid admins"];
+        }
+    }
+
+    _routine(
+        %args,
+        _lock            => 1,
+        _write_group     => $which eq 'group',
+        _write_gshadow   => $which eq 'group',
+        _write_passwd    => $which eq 'user',
+        _write_shadow    => $which eq 'user',
+        _after_read      => sub {
+            my $stash = shift;
+
+            my ($found, $changed);
+            if ($which eq 'user') {
+                my $passwd = $stash->{passwd};
+                for my $l (@$passwd) {
+                    next unless $l->[0] eq $user;
+                    $found++;
+                    for my $f (qw/pass uid gid gecos home shell/) {
+                        if (defined $args{$f}) {
+                            my $idx = firstidx {$_ eq $f} @passwd_field_names;
+                            $l->[$idx] = $args{$f};
+                            $changed++;
+                        }
+                    }
+                    last;
+                }
+                return [404, "Not found"] unless $found;
+                $stash->{write_passwd} = 0 unless $changed;
+
+                $changed = 0;
+                my $shadow = $stash->{shadow};
+                for my $l (@$shadow) {
+                    next unless $l->[0] eq $user;
+                    for my $f (qw/encpass last_pwchange min_pass_age max_pass_age
+                                  pass_warn_period pass_inactive_period expire_date/) {
+                        if (defined $args{$f}) {
+                            my $idx = firstidx {$_ eq $f} @shadow_field_names;
+                            $l->[$idx] = $args{$f};
+                            $changed++;
+                        }
+                    }
+                    last;
+                }
+                $stash->{write_shadow} = 0 unless $changed;
+            } else {
+                my $group = $stash->{group};
+                for my $l (@$group) {
+                    next unless $l->[0] eq $gn;
+                    $found++;
+                    for my $f (qw/pass gid members/) {
+                        if (defined $args{$f}) {
+                            my $idx = firstidx {$_ eq $f} @group_field_names;
+                            $l->[$idx] = $args{$f};
+                            $changed++;
+                        }
+                    }
+                    last;
+                }
+                return [404, "Not found"] unless $found;
+                $stash->{write_group} = 0 unless $changed;
+
+                $changed = 0;
+                my $gshadow = $stash->{gshadow};
+                for my $l (@$gshadow) {
+                    next unless $l->[0] eq $gn;
+                    for my $f (qw/encpass admins members/) {
+                        if (defined $args{$f}) {
+                            my $idx = firstidx {$_ eq $f} @gshadow_field_names;
+                            $l->[$idx] = $args{$f};
+                            $changed++;
+                        }
+                    }
+                    last;
+                }
+                $stash->{write_gshadow} = 0 unless $changed;
+            }
+            $stash->{res} = [200, "OK"];
+            [200];
+        },
+    );
+}
+
+$SPEC{modify_group} = {
+    v => 1.1,
+    summary => 'Modify an existing group',
+    description => <<'_',
+
+Specify arguments to modify corresponding fields. Unspecified fields will not be
+modified.
+
+_
+    args => {
+        %common_args,
+        %write_args,
+        map( {($_=>$group_fields{$_})} qw/group pass gid members/),
+        map( {($_=>$gshadow_fields{$_})}
+                 qw/encpass admins/),
+    },
+};
+sub modify_group {
+    _modify_group_or_user('group', @_);
+}
+
+$SPEC{modify_user} = {
+    v => 1.1,
+    summary => 'Modify an existing user',
+    description => <<'_',
+
+Specify arguments to modify corresponding fields. Unspecified fields will not be
+modified.
+
+_
+    args => {
+        %common_args,
+        %write_args,
+        map( {($_=>$passwd_fields{$_})} qw/user pass uid gid gecos home shell/),
+        map( {($_=>$shadow_fields{$_})}
+                 qw/encpass last_pwchange min_pass_age max_pass_age
+                   pass_warn_period pass_inactive_period expire_date/),
+    },
+};
+sub modify_user {
+    _modify_group_or_user('user', @_);
 }
 
 sub _delete_group_or_user {

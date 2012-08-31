@@ -139,5 +139,3 @@ if (Test::More->builder->is_passing) {
 } else {
     diag "there are failing tests, not deleting tmp dir $tmpdir";
 }
-
-1;
