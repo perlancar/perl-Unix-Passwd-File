@@ -1544,7 +1544,7 @@ sub delete_user {
 
  use Unix::Passwd::Files;
 
- # by default uses files in /etc (/etc/passwd, /etc/shadow, et al)
+ # list users. by default uses files in /etc (/etc/passwd, /etc/shadow, et al)
  my $res = list_users(); # [200, "OK", ["root", ...]]
 
  # change location of files, return details
@@ -1555,9 +1555,19 @@ sub delete_user {
  $res = list_users(detail=>1, with_field_names=>0);
      # [200, "OK", [["root", "x", 0, ...], ...]]
 
- # getting user/group
+ # get user/group information
  $res = get_group(user=>"buzz"); # [200, "OK", {user=>"buzz", uid=>501, ...}]
  $res = get_user(user=>"neil");  # [404, "Not found"]
+
+ # check whether user/group exists
+ say user_exists(user=>"buzz");   # 1
+ say group_exists(group=>"neil"); # 0
+
+ # get all groups that user is member of
+ $res = get_user_groups(user=>"buzz"); # [200, "OK", ["buzz", "nasa"]]
+
+ # check whether user is member of a group
+ $res = is_member(user=>"buzz", group=>"nasa"); # 1
 
  # adding user/group, by default adding user will also add a group with the same
  # name
@@ -1573,14 +1583,15 @@ sub delete_user {
 
  # change user password
  $res = set_user_password(user=>"steven", pass=>"foobar");
+ $res = modify_user(user=>"steven", pass=>"foobar"); # same thing
 
  # add/delete user to/from group
  $res = add_user_to_group(user=>"steven", group=>"wheel");
  $res = delete_user_from_group(user=>"steven", group=>"wheel");
 
  # others
- $res = get_max_uid();
- $res = get_max_gid();
+ $res = get_max_uid(); # [200, "OK", 65535]
+ $res = get_max_gid(); # [200, "OK", 65534]
 
 
 =head1 DESCRIPTION
