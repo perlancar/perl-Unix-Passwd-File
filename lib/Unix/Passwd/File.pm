@@ -1246,6 +1246,9 @@ sub _modify_group_or_user {
                     next unless $l->[0] eq $gn;
                     $found++;
                     for my $f (qw/pass gid members/) {
+                        if ($args{_before_set_group_field}) {
+                            $args{_before_set_group_field}->($l, $f, \%args);
+                        }
                         if (defined $args{$f}) {
                             my $idx = firstidx {$_ eq $f} @group_field_names;
                             $l->[$idx] = $args{$f};
@@ -1319,6 +1322,73 @@ _
 };
 sub modify_user {
     _modify_group_or_user('user', @_);
+}
+
+$SPEC{add_user_to_group} = {
+    v => 1.1,
+    summary => 'Add user to a group',
+    args => {
+        user => {
+            req => 1,
+        },
+        group => {
+            req => 1,
+        },
+    },
+};
+sub add_user_to_group {
+    my %args = @_;
+    my $user = $args{user} or return [400, "Please specify user"];
+    $user =~ $re_user or return [400, "Invalid user"];
+    my $gn   = $args{group}; # will be required by modify_group
+
+    # XXX check user exists
+    _modify_group_or_user(
+        'group',
+        %args,
+        _before_set_group_field => sub {
+            my ($l, $f, $args) = @_;
+            return unless $l->[0] eq $gn;
+            my @mm = split /,/, $l->[3];
+            return if $user ~~ @mm;
+            push @mm, $user;
+            $args->{members} = join(",", @mm);
+        },
+    );
+}
+
+
+$SPEC{delete_user_from_group} = {
+    v => 1.1,
+    summary => 'Delete user from a group',
+    args => {
+        user => {
+            req => 1,
+        },
+        group => {
+            req => 1,
+        },
+    },
+};
+sub delete_user_from_group {
+    my %args = @_;
+    my $user = $args{user} or return [400, "Please specify user"];
+    $user =~ $re_user or return [400, "Invalid user"];
+    my $gn   = $args{group}; # will be required by modify_group
+
+    # XXX check user exists
+    _modify_group_or_user(
+        'group',
+        %args,
+        _before_set_group_field => sub {
+            my ($l, $f, $args) = @_;
+            return unless $l->[0] eq $gn;
+            my @mm = split /,/, $l->[3];
+            return unless $user ~~ @mm;
+            @mm = grep {$_ ne $user} @mm;
+            $args->{members} = join(",", @mm);
+        },
+    );
 }
 
 $SPEC{set_user_password} = {
