@@ -1,5 +1,17 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.02     2012-08-31 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - Implement modify_user(), modify_group(), delete_user(),
+           delete_group(), set_user_password(), add_user_to_group(),
+           delete_user_from_group().
+
+         - Add functions: is_member(), user_exists(), group_exists(),
+           get_user_groups().
+
+
 0.01     2012-08-30 (SHARYANTO)
 
          First release. I created a new module instead of using
