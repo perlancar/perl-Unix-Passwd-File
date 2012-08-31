@@ -945,10 +945,12 @@ sub _add_group_or_user {
 
     # TMP,schema
     my ($user, $gn);
+    my $create_group = 1;
     if ($which eq 'user') {
         $user = $args{user} or return [400, "Please specify user"];
         $user =~ $re_user or return [400, "Invalid user, please use $re_user"];
-        $gn = $user;
+        $gn = $args{group} // $user;
+        $create_group = 0 if $gn ne $user;
     }
     $gn //= $args{group};
     $gn or return [400, "Please specify group"];
@@ -1017,20 +1019,31 @@ sub _add_group_or_user {
 
             my $group   = $stash->{group};
             my $gshadow = $stash->{gshadow};
-            return [412, "Group $gn already exists"]
-                if first { $_->[0] eq $gn } @$group;
-            my @gids = map { $_->[2] } @$group;
-            if (defined $gid) {
-                return [412, "GID $gid already exists"] if $gid ~~ @gids;
+            my $write_g;
+            my $cur_g = first { $_->[0] eq $gn } @$group;
+
+            if ($which eq 'group' && $cur_g) {
+                return [412, "Group $gn already exists"] if $cur_g;
+            } elsif ($cur_g) {
+                $gid = $cur_g->[2];
+            } elsif (!$create_group) {
+                return [412, "Group $gn must already exist"];
             } else {
-                for ($min_gid .. $max_gid) {
-                    do { $gid = $_; last } unless $_ ~~ @gids;
+                my @gids = map { $_->[2] } @$group;
+                if (defined $gid) {
+                    return [412, "GID $gid already exists"] if $gid ~~ @gids;
+                } else {
+                    for ($min_gid .. $max_gid) {
+                        do { $gid = $_; last } unless $_ ~~ @gids;
+                    }
+                    return [412, "Can't find available GID"]
+                        unless defined($gid);
                 }
-                return [412, "Can't find available GID"] unless defined($gid);
+                push @$group  , [$gn, "x", $gid, $members];
+                push @$gshadow, [$gn, "*", "", $members];
+                $write_g++;
             }
             my $r = {gid=>$gid};
-            push @$group  , [$gn, "x", $gid, $members];
-            push @$gshadow, [$gn, "*", "", $members];
 
             if ($which eq 'user') {
                 my $passwd  = $stash->{passwd};
@@ -1052,8 +1065,20 @@ sub _add_group_or_user {
                 push @$shadow, [$user, $encpass, $last_pwchange, $min_pass_age,
                                 $max_pass_age, $pass_warn_period,
                                 $pass_inactive_period, $expire_date, ""];
+
+                # add user as member of group
+                for my $l (@$group) {
+                    next unless $l->[0] eq $gn;
+                    my @mm = split /,/, $l->[3];
+                    unless ($user ~~ @mm) {
+                        $l->[3] = join(",", @mm, $user);
+                        $write_g++;
+                        last;
+                    }
+                }
             }
 
+            $stash->{write_group} = $stash->{write_gshadow} = 0 unless $write_g;
             $stash->{res} = [200, "OK", $r];
             [200];
         },
@@ -1100,29 +1125,35 @@ $SPEC{add_user} = {
         user => {
             req => 1,
         },
+        group => {
+            summary => 'Select primary group '.
+                '(default is group with same name as user)',
+            description => <<'_',
+
+Normally, a user's primary group with group with the same name as user, which
+will be created if does not already exist. You can pick another group here,
+which must already exist (and in this case, the group with the same name as user
+will not be created).
+
+_
+        },
         gid => {
-            summary => 'Pick a specific new GID',
-            req => 0,
+            summary => 'Pick a specific GID when creating group',
         },
         min_gid => {
-            summary => 'Pick a range for new GID',
-            req => 0,
+            summary => 'Pick a range for GID when creating group',
         },
         max_gid => {
-            summary => 'Pick a range for new GID',
-            req => 0,
+            summary => 'Pick a range for GID when creating group',
         },
         uid => {
             summary => 'Pick a specific new UID',
-            req => 0,
         },
         min_uid => {
             summary => 'Pick a range for new UID',
-            req => 0,
         },
         max_uid => {
             summary => 'Pick a range for new UID',
-            req => 0,
         },
         map( {($_=>$passwd_fields{$_})} qw/pass gecos home shell/),
         map( {($_=>$shadow_fields{$_})}

@@ -10,7 +10,7 @@ use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
 use File::Slurp;
 use File::Temp qw(tempdir);
-use Unix::Passwd::File qw(add_user get_user);
+use Unix::Passwd::File qw(add_user get_user get_group);
 use Test::More 0.96;
 
 my @files = qw(passwd shadow group gshadow);
@@ -123,7 +123,38 @@ subtest "pick min_uid, max_uid (unavailable)" => sub {
                        user=>"foo", home=>"/home/foo", shell=>"/bin/bash",
                        min_uid=>1000, max_uid=>1001,
                    );
-    is($res->[0], 412, "status");
+    is($res->[0], 412, "status") or diag explain $res;
+};
+
+subtest "group, group doesn't exist -> fail" => sub {
+    remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
+    my $res = add_user(etc_dir=>"$tmpdir/simple",
+                       user=>"foo", group=>"bar",
+                   );
+    is($res->[0], 412, "status") or diag explain $res;
+};
+subtest "group, group didn't exist (=user) -> success" => sub {
+    remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
+    my $res = add_user(etc_dir=>"$tmpdir/simple",
+                       user=>"foo", group=>"foo",
+                   );
+    is($res->[0], 200, "status");
+    is_deeply($res->[2], {uid=>1002, gid=>1002}, "res");
+    $res = get_group(etc_dir=>"$tmpdir/simple", group=>"foo");
+    is($res->[0], 200, "status");
+    is($res->[2]{members}, "foo", "res");
+};
+# XXX subtest "group, group already exists (=user) -> success" => sub {
+subtest "group, group exists -> success" => sub {
+    remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
+    my $res = add_user(etc_dir=>"$tmpdir/simple",
+                       user=>"foo", group=>"nobody",
+                   );
+    is($res->[0], 200, "status");
+    is_deeply($res->[2], {uid=>1002, gid=>111}, "res");
+    $res = get_group(etc_dir=>"$tmpdir/simple", group=>"nobody");
+    is($res->[0], 200, "status");
+    is($res->[2]{members}, "foo", "res");
 };
 
 # XXX: test gid
