@@ -934,8 +934,12 @@ sub add_user {
  my $res = list_users(); # [200, "OK", ["root", ...]]
 
  # change location of files, return details
- $res = list_users(etc_dir=>"/some/path");
+ $res = list_users(etc_dir=>"/some/path", detail=>1);
      # [200, "OK", [{user=>"root", uid=>0, ...}, ...]]
+
+ # also return detail, but return array entries instead of hash
+ $res = list_users(detail=>1, with_field_names=>0);
+     # [200, "OK", [["root", "x", 0, ...], ...]]
 
  # getting user/group
  $res = get_group(user=>"buzz"); # [200, "OK", {user=>"buzz", uid=>501, ...}]
