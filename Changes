@@ -1,5 +1,13 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.04     2012-08-31 (SHARYANTO)
+
+         - add_user(): Add option 'group' to allow setting primary group that is
+           not the same as group with the same name as user (e.g.
+           add_user(user=>'nobody', group=>'nogroup')). The group (in this case,
+           'nogroup') must already exist.
+
+
 0.03     2012-08-31 (SHARYANTO)
 
          - Convert several package-lexical variables into package variables
