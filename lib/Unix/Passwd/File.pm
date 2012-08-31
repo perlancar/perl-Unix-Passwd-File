@@ -55,12 +55,12 @@ _
     },
 );
 
-my $re_user   = qr/\A[A-Za-z0-9._-]+\z/;
-my $re_group  = $re_user;
-my $re_field  = qr/\A[^\n:]*\z/;
-my $re_posint = qr/\A[1-9][0-9]*\z/;
+our $re_user   = qr/\A[A-Za-z0-9._-]+\z/;
+our $re_group  = $re_user;
+our $re_field  = qr/\A[^\n:]*\z/;
+our $re_posint = qr/\A[1-9][0-9]*\z/;
 
-my %passwd_fields = (
+our %passwd_fields = (
     user => {
         index   => 0,
         schema  => ['str*' => {match => $re_user}],
@@ -98,13 +98,13 @@ my %passwd_fields = (
         summary => 'User\'s home directory',
     },
 );
-my @passwd_field_names;
+our @passwd_field_names;
 for (keys %passwd_fields) {
     $passwd_field_names[$passwd_fields{$_}{index}] = $_;
     delete $passwd_fields{$_}{index};
 }
 
-my %shadow_fields = (
+our %shadow_fields = (
     user => {
         index   => 0,
         schema  => ['str*' => {match => $re_user}],
@@ -158,13 +158,13 @@ my %shadow_fields = (
         summary => 'This field is reserved for future use',
     }
 );
-my @shadow_field_names;
+our @shadow_field_names;
 for (keys %shadow_fields) {
     $shadow_field_names[$shadow_fields{$_}{index}] = $_;
     delete $shadow_fields{$_}{index};
 }
 
-my %group_fields = (
+our %group_fields = (
     group => {
         index   => 0,
         schema  => ['str*' => {match => $re_group}],
@@ -188,13 +188,13 @@ my %group_fields = (
             'separated by commas',
     },
 );
-my @group_field_names;
+our @group_field_names;
 for (keys %group_fields) {
     $group_field_names[$group_fields{$_}{index}] = $_;
     delete $group_fields{$_}{index};
 }
 
-my %gshadow_fields = (
+our %gshadow_fields = (
     group => {
         index   => 0,
         schema  => ['str*' => {match => $re_group}],
@@ -218,7 +218,7 @@ my %gshadow_fields = (
                 '/etc/group.',
     },
 );
-my @gshadow_field_names;
+our @gshadow_field_names;
 for (keys %gshadow_fields) {
     $gshadow_field_names[$gshadow_fields{$_}{index}] = $_;
     delete $gshadow_fields{$_}{index};
