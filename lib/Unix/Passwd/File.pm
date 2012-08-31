@@ -34,7 +34,7 @@ my %write_args = (
         summary => 'Whether to backup when modifying files',
         description => <<'_',
 
-Backup is written with C<.bak> extension in the same directory. Unmodified file
+Backup is written with `.bak` extension in the same directory. Unmodified file
 will not be backed up. Previous backup will be overwritten.
 
 _
