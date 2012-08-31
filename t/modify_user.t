@@ -67,7 +67,6 @@ subtest "success (modify no fields)" => sub {
         'user'                 => 'u1'
     }, "res") or diag explain $res;
 };
-goto DONE_TESTING;
 
 subtest "success (modify all fields)" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
@@ -89,7 +88,7 @@ subtest "success (modify all fields)" => sub {
     );
     is($res->[0], 200, "status");
 
-    $res = get_user(etc_dir=>"$tmpdir/simple", group=>"u1");
+    $res = get_user(etc_dir=>"$tmpdir/simple", user=>"u1");
     is($res->[0], 200, "status");
     is_deeply($res->[2], {
         'encpass'              => 'foo',

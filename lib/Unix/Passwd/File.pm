@@ -13,13 +13,22 @@ use List::MoreUtils qw(firstidx);
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(
-                       get_user list_users delete_user modify_user add_user
-                       get_max_uid
-                       set_user_password
-                       get_group list_groups delete_group modify_group add_group
-                       get_max_gid
+                       add_group
+                       add_user
                        add_user_to_group
+                       delete_group
+                       delete_user
                        delete_user_from_group
+                       get_group
+                       get_max_gid
+                       get_max_uid
+                       get_user
+                       get_user_groups
+                       list_groups
+                       list_users
+                       modify_group
+                       modify_user
+                       set_user_password
                );
 
 our %SPEC;
@@ -715,6 +724,78 @@ sub get_group {
     );
 }
 
+$SPEC{get_user_groups} = {
+    v => 1.1,
+    summary => 'Return groups which the user belongs to',
+    args => {
+        %common_args,
+        user => {
+            req => 1,
+        },
+        detail => {
+            summary => 'If true, return all fields instead of just group names',
+            schema => ['bool' => {default => 0}],
+        },
+        with_field_names => {
+            summary => 'If false, don\'t return hash for each entry',
+            schema => [bool => {default=>1}],
+            description => <<'_',
+
+By default, when `detail=>1`, a hashref is returned for each entry containing
+field names and its values, e.g. `{group=>"neil", pass=>"x", gid=>500, ...}`.
+With `with_field_names=>0`, an arrayref is returned instead: `["neil", "x", 500,
+...]`.
+
+_
+        },
+    },
+};
+# this is a routine to list groups, but filtered using a criteria. can be
+# refactored into a common routine (along with list_groups) if needed, to reduce
+# duplication.
+sub get_user_groups {
+    my %args = @_;
+    my $user = $args{user} or return [400, "Please specify user"];
+    my $detail = $args{detail};
+    my $wfn    = $args{with_field_names} // ($detail ? 1:0);
+
+    _routine(
+        %args,
+        _read_passwd     => 1,
+        _read_group      => 1,
+        _read_gshadow    => $detail ? 2:0,
+        with_field_names => $wfn,
+        _after_read      => sub {
+            my $stash = shift;
+
+            my $passwd = $stash->{passwd};
+            return [404, "User not found"]
+                unless first {$_->[0] eq $user} @$passwd;
+
+            my @rows;
+            my $group    = $stash->{group};
+            my $grouph   = $stash->{grouph};
+
+            for (my $i=0; $i < @$group; $i++) {
+                my @mm = split /,/, $group->[$i][3];
+                next unless $user ~~ @mm || $group->[$i][0] eq $user;
+                if (!$detail) {
+                    push @rows, $group->[$i][0];
+                } elsif ($wfn) {
+                    push @rows, $grouph->[$i];
+                } else {
+                    push @rows, $group->[$i];
+                }
+            }
+
+            $stash->{res} = [200, "OK", \@rows];
+
+            $stash->{exit}++;
+            [200];
+        },
+    );
+}
+
 $SPEC{get_max_uid} = {
     v => 1.1,
     summary => 'Get maximum UID used',
@@ -935,7 +1016,7 @@ $SPEC{add_user} = {
     args => {
         %common_args,
         %write_args,
-        group => {
+        user => {
             req => 1,
         },
         gid => {
@@ -1157,6 +1238,28 @@ _
 };
 sub modify_user {
     _modify_group_or_user('user', @_);
+}
+
+$SPEC{set_user_password} = {
+    v => 1.1,
+    summary => 'Set user\'s password',
+    args => {
+        %common_args,
+        %write_args,
+        user => {
+            req => 1,
+        },
+        pass => {
+            req => 1,
+        },
+    },
+};
+sub set_user_password {
+    my %args = @_;
+
+    $args{user} or return [400, "Please specify user"];
+    defined($args{pass}) or return [400, "Please specify pass"];
+    modify_user(%args);
 }
 
 sub _delete_group_or_user {
