@@ -83,12 +83,12 @@ subtest "pick gid" => sub {
     is($res->[0], 200, "status");
     is_deeply($res->[2], {gid=>1003}, "res");
 };
-subtest "pick gid (unavailable)" => sub {
+subtest "pick gid (unavailable) -> success" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
     my $res = add_group(etc_dir=>"$tmpdir/simple",
                        group=>"foo", gid=>1001,
                    );
-    is($res->[0], 412, "status");
+    is($res->[0], 200, "status");
 };
 subtest "pick min_gid..max_gid" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");

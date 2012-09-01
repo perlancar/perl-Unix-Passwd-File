@@ -1102,9 +1102,7 @@ sub _add_group_or_user {
                 return [412, "Group $gn must already exist"];
             } else {
                 my @gids = map { $_->[2] } @$group;
-                if (defined $gid) {
-                    return [412, "GID $gid already exists"] if $gid ~~ @gids;
-                } else {
+                if (!defined($gid)) {
                     for ($min_gid .. $max_gid) {
                         do { $gid = $_; last } unless $_ ~~ @gids;
                     }
