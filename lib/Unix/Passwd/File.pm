@@ -1029,8 +1029,8 @@ sub _add_group_or_user {
     $gn =~ $re_group or return [400, "Invalid group, please use $re_group"];
 
     my $gid     = $args{gid};
-    my $min_gid = $args{min_gid} // 1000;
-    my $max_gid = $args{max_gid} // 65535;
+    my $min_gid = $args{min_gid} //  1000; $min_gid =     0 if $min_gid<0;
+    my $max_gid = $args{max_gid} // 65535; $max_gid = 65535 if $max_gid>65535;
     my $members;
     if ($which eq 'group') {
         $members = $args{members};
@@ -1050,8 +1050,8 @@ sub _add_group_or_user {
         $pass_warn_period, $pass_inactive_period, $expire_date);
     if ($which eq 'user') {
         $uid = $args{uid};
-        $min_uid = $args{min_uid} // 1000;
-        $max_uid = $args{max_uid} // 65535;
+        $min_uid = $args{min_uid} //  1000; $min_uid =     0 if $min_uid<0;
+        $max_uid = $args{max_uid} // 65535; $max_uid = 65535 if $min_uid>65535;
 
         $pass = $args{pass} // "";
         if ($pass !~ $re_field) { return [400, "Invalid pass"] }
@@ -1121,9 +1121,7 @@ sub _add_group_or_user {
                 return [412, "User $gn already exists"]
                     if first { $_->[0] eq $user } @$passwd;
                 my @uids = map { $_->[2] } @$passwd;
-                if (defined $uid) {
-                    return [412, "UID $gid already exists"] if $uid ~~ @uids;
-                } else {
+                if (!defined($uid)) {
                     for ($min_uid .. $max_uid) {
                         do { $uid = $_; last } unless $_ ~~ @uids;
                     }
@@ -1166,19 +1164,34 @@ $SPEC{add_group} = {
         },
         gid => {
             summary => 'Pick a specific new GID',
-            req => 0,
+            description => <<'_',
+
+Adding a new group with duplicate GID is allowed.
+
+_
         },
         min_gid => {
             summary => 'Pick a range for new GID',
-            req => 0,
-        },
+            schema => [int => {between=>[0, 65535], default=>1000}],
+            description => <<'_',
+
+If a free GID between `min_gid` and `max_gid` is not found, error 412 is
+returned.
+
+_
+         },
         max_gid => {
             summary => 'Pick a range for new GID',
-            req => 0,
+            schema => [int => {between=>[0, 65535], default=>65535}],
+            description => <<'_',
+
+If a free GID between `min_gid` and `max_gid` is not found, error 412 is
+returned.
+
+_
         },
         members => {
             summary => 'Fill initial members',
-            req => 0,
         },
     },
 };
@@ -1209,6 +1222,11 @@ _
         },
         gid => {
             summary => 'Pick a specific GID when creating group',
+            description => <<'_',
+
+Duplicate GID is allowed.
+
+_
         },
         min_gid => {
             summary => 'Pick a range for GID when creating group',
@@ -1218,12 +1236,31 @@ _
         },
         uid => {
             summary => 'Pick a specific new UID',
+            description => <<'_',
+
+Adding a new user with duplicate UID is allowed.
+
+_
         },
         min_uid => {
             summary => 'Pick a range for new UID',
+            schema => [int => {between=>[0,65535], default=>1000}],
+            description => <<'_',
+
+If a free UID between `min_uid` and `max_uid` is not found, error 412 is
+returned.
+
+_
         },
         max_uid => {
             summary => 'Pick a range for new UID',
+            schema => [int => {between=>[0,65535], default=>65535}],
+            description => <<'_',
+
+If a free UID between `min_uid` and `max_uid` is not found, error 412 is
+returned.
+
+_
         },
         map( {($_=>$passwd_fields{$_})} qw/pass gecos home shell/),
         map( {($_=>$shadow_fields{$_})}

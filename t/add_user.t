@@ -99,13 +99,13 @@ subtest "uid" => sub {
     is($res->[0], 200, "status");
     is_deeply($res->[2], {uid=>2000, gid=>1002}, "res");
 };
-subtest "uid (unavailable)" => sub {
+subtest "uid (unavailable) -> success" => sub {
     remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
     my $res = add_user(etc_dir=>"$tmpdir/simple",
                        user=>"foo", home=>"/home/foo", shell=>"/bin/bash",
                        uid=>1000,
                    );
-    is($res->[0], 412, "status");
+    is($res->[0], 200, "status");
 };
 
 subtest "pick min_uid, max_uid" => sub {
