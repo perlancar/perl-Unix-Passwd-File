@@ -1,5 +1,14 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.06     2012-09-01 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - Allow adding user with non-unique UID.
+
+         - Allow adding group with non-unique GID.
+
+
 0.05     2012-08-31 (SHARYANTO)
 
          [ENHANCEMENTS]
