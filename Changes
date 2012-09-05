@@ -1,5 +1,10 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.08     2012-09-05 (SHARYANTO)
+
+         - Add function: set_user_groups().
+
+
 0.07     2012-09-05 (SHARYANTO)
 
          - Add function: add_delete_user_groups().
