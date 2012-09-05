@@ -1680,7 +1680,7 @@ sub delete_user {
 
 =head1 SYNOPSIS
 
- use Unix::Passwd::Files;
+ use Unix::Passwd::File;
 
  # list users. by default uses files in /etc (/etc/passwd, /etc/shadow, et al)
  my $res = list_users(); # [200, "OK", ["root", ...]]
