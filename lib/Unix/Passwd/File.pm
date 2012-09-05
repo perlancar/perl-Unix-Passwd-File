@@ -16,6 +16,7 @@ our @EXPORT_OK = qw(
                        add_group
                        add_user
                        add_user_to_group
+                       add_delete_user_groups
                        delete_group
                        delete_user
                        delete_user_from_group
@@ -1466,6 +1467,7 @@ $SPEC{add_user_to_group} = {
     v => 1.1,
     summary => 'Add user to a group',
     args => {
+        %common_args,
         user => {
             req => 1,
         },
@@ -1500,6 +1502,7 @@ $SPEC{delete_user_from_group} = {
     v => 1.1,
     summary => 'Delete user from a group',
     args => {
+        %common_args,
         user => {
             req => 1,
         },
@@ -1525,6 +1528,81 @@ sub delete_user_from_group {
             return unless $user ~~ @mm;
             @mm = grep {$_ ne $user} @mm;
             $args->{members} = join(",", @mm);
+        },
+    );
+}
+
+$SPEC{add_delete_user_groups} = {
+    v => 1.1,
+    summary => 'Add or delete user from one or several groups',
+    description => <<'_',
+
+This can be used to reduce several `add_user_to_group()` and/or
+`delete_user_from_group()` calls to a single call. So:
+
+    add_delete_user_groups(user=>'u',add_to=>['a','b'],delete_from=>['c','d']);
+
+is equivalent to:
+
+    add_user_to_group     (user=>'u', group=>'a');
+    add_user_to_group     (user=>'u', group=>'b');
+    delete_user_from_group(user=>'u', group=>'c');
+    delete_user_from_group(user=>'u', group=>'d');
+
+except that `add_delete_user_groups()` does it in one pass.
+
+_
+    args => {
+        %common_args,
+        user => {
+            req => 1,
+        },
+        add_to => {
+            summary => 'List of group names to add the user as member of',
+            schema => [array => {of=>'str*', default=>[]}],
+        },
+        delete_from => {
+            summary => 'List of group names to remove the user as member of',
+            schema => [array => {of=>'str*', default=>[]}],
+        },
+    },
+};
+sub add_delete_user_groups {
+    my %args = @_;
+    my $user = $args{user} or return [400, "Please specify user"];
+    $user =~ $re_user or return [400, "Invalid user"];
+    my $add  = $args{add_to} // [];
+    my $del  = $args{delete_from} // [];
+
+    # XXX check user exists
+
+    _routine(
+        %args,
+        _lock            => 1,
+        _write_group     => 1,
+        _after_read      => sub {
+            my $stash = shift;
+
+            my $group = $stash->{group};
+            my $changed;
+
+            for my $l (@$group) {
+                my @mm = split /,/, $l->[-1];
+                if ($l->[0] ~~ $add && !($user ~~ @mm)) {
+                    $changed++;
+                    push @mm, $user;
+                }
+                if ($l->[0] ~~ $del && $user ~~ @mm) {
+                    $changed++;
+                    @mm = grep {$_ ne $user} @mm;
+                }
+                if ($changed) {
+                    $l->[-1] = join ",", @mm;
+                }
+            }
+            $stash->{write_group} = 0 unless $changed;
+            $stash->{res} = [200, "OK"];
+            [200];
         },
     );
 }
