@@ -30,6 +30,21 @@ subtest "success" => sub {
         or diag explain $res;
 };
 
+subtest "unknown group currently ok" => sub {
+    remove_tree "$tmpdir/simple"; rcopy("$Bin/data/simple", "$tmpdir/simple");
+    my $res = add_delete_user_groups(
+        etc_dir=>"$tmpdir/simple",
+        user=>"u1", add_to=>[qw/foo bar/], delete_from=>[qw/baz qux/],
+    );
+    is($res->[0], 200, "status");
+    $res = get_user_groups(etc_dir=>"$tmpdir/simple", user=>"u1");
+    is($res->[0], 200, "status");
+    is_deeply($res->[2], ["u1", "u2"], "groups")
+        or diag explain $res;
+};
+
+# XXX test unknown user
+
 DONE_TESTING:
 done_testing();
 if (Test::More->builder->is_passing) {
