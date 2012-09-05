@@ -13,10 +13,10 @@ use List::MoreUtils qw(firstidx);
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(
+                       add_delete_user_groups
                        add_group
                        add_user
                        add_user_to_group
-                       add_delete_user_groups
                        delete_group
                        delete_user
                        delete_user_from_group
@@ -32,6 +32,7 @@ our @EXPORT_OK = qw(
                        list_users_and_groups
                        modify_group
                        modify_user
+                       set_user_groups
                        set_user_password
                        user_exists
                );
@@ -1593,6 +1594,65 @@ sub add_delete_user_groups {
                     push @mm, $user;
                 }
                 if ($l->[0] ~~ $del && $user ~~ @mm) {
+                    $changed++;
+                    @mm = grep {$_ ne $user} @mm;
+                }
+                if ($changed) {
+                    $l->[-1] = join ",", @mm;
+                }
+            }
+            $stash->{write_group} = 0 unless $changed;
+            $stash->{res} = [200, "OK"];
+            [200];
+        },
+    );
+}
+
+$SPEC{set_user_groups} = {
+    v => 1.1,
+    summary => 'Set the groups that a user is member of',
+    args => {
+        %common_args,
+        user => {
+            req => 1,
+        },
+        groups => {
+            summary => 'List of group names that user is member of',
+            schema => [array => {of=>'str*', default=>[]}],
+            req => 1,
+            description => <<'_',
+
+Aside from this list, user will not belong to any other group.
+
+_
+        },
+    },
+};
+sub set_user_groups {
+    my %args = @_;
+    my $user = $args{user} or return [400, "Please specify user"];
+    $user =~ $re_user or return [400, "Invalid user"];
+    my $gg   = $args{groups} or return [400, "Please specify groups"];
+
+    # XXX check user exists
+
+    _routine(
+        %args,
+        _lock            => 1,
+        _write_group     => 1,
+        _after_read      => sub {
+            my $stash = shift;
+
+            my $group = $stash->{group};
+            my $changed;
+
+            for my $l (@$group) {
+                my @mm = split /,/, $l->[-1];
+                if ($l->[0] ~~ $gg && !($user ~~ @mm)) {
+                    $changed++;
+                    push @mm, $user;
+                }
+                if (!($l->[0] ~~ $gg) && $user ~~ @mm) {
                     $changed++;
                     @mm = grep {$_ ne $user} @mm;
                 }
