@@ -1006,12 +1006,8 @@ sub get_max_gid {
 }
 
 sub _enc_pass {
-    require UUID::Random;
-    require Digest::MD5;
-
-    my $pass = shift;
-    my $salt = substr(Digest::MD5::md5_base64(UUID::Random::generate()), 0, 8);
-    crypt($pass, '$6$'.$salt.'$');
+    require Crypt::Password::Util;
+    Crypt::Password::Util::crypt($pass);
 }
 
 sub _add_group_or_user {
