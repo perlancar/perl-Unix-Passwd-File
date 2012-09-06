@@ -1007,7 +1007,7 @@ sub get_max_gid {
 
 sub _enc_pass {
     require Crypt::Password::Util;
-    Crypt::Password::Util::crypt($pass);
+    Crypt::Password::Util::crypt(shift);
 }
 
 sub _add_group_or_user {
