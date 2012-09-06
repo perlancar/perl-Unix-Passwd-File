@@ -945,7 +945,6 @@ sub is_member {
     my $user  = $args{user}  or return undef;
     my $group = $args{group} or return undef;
     my $res = get_group(etc_dir=>$args{etc_dir}, group=>$group);
-    $log->errorf("res=%s", $res);
     return undef unless $res->[0] == 200;
     my @mm = split /,/, $res->[2]{members};
     return $user ~~ @mm ? 1:0;
