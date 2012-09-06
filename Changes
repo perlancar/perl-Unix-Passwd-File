@@ -1,5 +1,11 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.09     2012-09-06 (SHARYANTO)
+
+         No functional changes. Use Crypt::Password::Util to check encrypted
+         password because different OS'es use different crypt.
+
+
 0.08     2012-09-05 (SHARYANTO)
 
          - Add function: set_user_groups().
