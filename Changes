@@ -1,5 +1,11 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.10     2012-09-06 (SHARYANTO)
+
+         Use Crypt::Password::Util's crypt() to create encrypted password in a
+         more portable way.
+
+
 0.09     2012-09-06 (SHARYANTO)
 
          No functional changes. Use Crypt::Password::Util to check encrypted
