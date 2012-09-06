@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use FindBin '$Bin';
 
+use Crypt::Password::Util qw(looks_like_crypt);
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
@@ -83,7 +84,8 @@ subtest "backup, set pass" => sub {
 
     $res = get_user(etc_dir=>"$tmpdir/simple", user=>"foo");
     is($res->[2]{pass}, 'x', "pass");
-    like($res->[2]{encpass}, qr/^\$6\$/, "encpass");
+    ok(looks_like_crypt($res->[2]{encpass}), "encpass")
+        or diag "encpass=$res->[2]{encpass}";
 
     for (@files) {
         ok((-f "$tmpdir/simple/$_.bak"), "backup file $_.bak created");

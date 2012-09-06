@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use FindBin '$Bin';
 
+use Crypt::Password::Util qw(looks_like_crypt);
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
@@ -39,7 +40,8 @@ subtest "success" => sub {
 
     $res = get_user(etc_dir=>"$tmpdir/simple", user=>"u1");
     is($res->[0], 200, "status");
-    like($res->[2]{encpass}, qr/^\$6\$/, "encpass") or diag explain $res;
+    ok(looks_like_crypt($res->[2]{encpass}), "encpass")
+        or diag "encpass=$res->[2]{encpass}";
 };
 
 DONE_TESTING:
