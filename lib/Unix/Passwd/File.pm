@@ -1017,13 +1017,15 @@ sub _add_group_or_user {
     my $create_group = 1;
     if ($which eq 'user') {
         $user = $args{user} or return [400, "Please specify user"];
-        $user =~ $re_user or return [400, "Invalid user, please use $re_user"];
+        $user =~ /$re_user/o
+            or return [400, "Invalid user, please use $re_user"];
         $gn = $args{group} // $user;
         $create_group = 0 if $gn ne $user;
     }
     $gn //= $args{group};
     $gn or return [400, "Please specify group"];
-    $gn =~ $re_group or return [400, "Invalid group, please use $re_group"];
+    $gn =~ /$re_group/o
+        or return [400, "Invalid group, please use $re_group"];
 
     my $gid     = $args{gid};
     my $min_gid = $args{min_gid} //  1000; $min_gid =     0 if $min_gid<0;
@@ -1035,7 +1037,7 @@ sub _add_group_or_user {
             $members = join(",",@$members);
         }
         $members //= "";
-        $members =~ $re_field
+        $members =~ /$re_field/o
             or return [400, "Invalid members, please use $re_field"];
     } else {
         $members = "$user";
@@ -1051,29 +1053,30 @@ sub _add_group_or_user {
         $max_uid = $args{max_uid} // 65535; $max_uid = 65535 if $min_uid>65535;
 
         $pass = $args{pass} // "";
-        if ($pass !~ $re_field) { return [400, "Invalid pass"] }
+        if ($pass !~ /$re_field/o) { return [400, "Invalid pass"] }
 
         $gecos = $args{gecos} // "";
-        if ($gecos !~ $re_field) { return [400, "Invalid gecos"] }
+        if ($gecos !~ /$re_field/o) { return [400, "Invalid gecos"] }
 
         $home = $args{home} // "";
-        if ($home !~ $re_field) { return [400, "Invalid home"] }
+        if ($home !~ /$re_field/o) { return [400, "Invalid home"] }
 
         $shell = $args{shell} // "";
-        if ($shell !~ $re_field) { return [400, "Invalid shell"] }
+        if ($shell !~ /$re_field/o) { return [400, "Invalid shell"] }
 
         $encpass = $args{encpass} // ($pass eq '' ? '*' : _enc_pass($pass));
-        if ($encpass !~ $re_field) { return [400, "Invalid encpass"] }
+        if ($encpass !~ /$re_field/o) { return [400, "Invalid encpass"] }
 
         $last_pwchange = int($args{last_pwchange} // time()/86400);
         $min_pass_age  = int($args{min_pass_age} // 0);
         $max_pass_age  = int($args{max_pass_age} // 99999);
         $pass_warn_period = int($args{max_pass_age} // 7);
         $pass_inactive_period = $args{pass_inactive_period} // "";
-        if ($pass_inactive_period !~ $re_field) {
+        if ($pass_inactive_period !~ /$re_field/o) {
             return [400, "Invalid pass_inactive_period"] }
         $expire_date = $args{expire_date} // "";
-        if ($expire_date !~ $re_field) { return [400, "Invalid expire_date"] }
+        if ($expire_date !~ /$re_field/o) {
+            return [400, "Invalid expire_date"] }
     }
 
     _routine(
@@ -1281,54 +1284,54 @@ sub _modify_group_or_user {
     }
 
     if ($which eq 'user') {
-        if (defined($args{uid}) && $args{uid} !~ $re_posint) {
+        if (defined($args{uid}) && $args{uid} !~ /$re_posint/o) {
             return [400, "Invalid uid"] }
-        if (defined($args{gid}) && $args{gid} !~ $re_posint) {
+        if (defined($args{gid}) && $args{gid} !~ /$re_posint/o) {
             return [400, "Invalid gid"] }
-        if (defined($args{gecos}) && $args{gecos} !~ $re_field) {
+        if (defined($args{gecos}) && $args{gecos} !~ /$re_field/o) {
             return [400, "Invalid gecos"] }
-        if (defined($args{home}) && $args{home} !~ $re_field) {
+        if (defined($args{home}) && $args{home} !~ /$re_field/o) {
             return [400, "Invalid home"] }
-        if (defined($args{shell}) && $args{shell} !~ $re_field) {
+        if (defined($args{shell}) && $args{shell} !~ /$re_field/o) {
             return [400, "Invalid shell"] }
         if (defined $args{pass}) {
             $args{encpass} = $args{pass} eq '' ? '*' : _enc_pass($args{pass});
             $args{pass} = "x";
         }
-        if (defined($args{encpass}) && $args{encpass} !~ $re_field) {
+        if (defined($args{encpass}) && $args{encpass} !~ /$re_field/o) {
             return [400, "Invalid encpass"] }
-        if (defined($args{last_pwchange}) && $args{last_pwchange} !~ $re_posint) {
+        if (defined($args{last_pwchange}) && $args{last_pwchange} !~ /$re_posint/o) {
             return [400, "Invalid last_pwchange"] }
-        if (defined($args{min_pass_age}) && $args{min_pass_age} !~ $re_posint) {
+        if (defined($args{min_pass_age}) && $args{min_pass_age} !~ /$re_posint/o) {
             return [400, "Invalid min_pass_age"] }
-        if (defined($args{max_pass_age}) && $args{max_pass_age} !~ $re_posint) {
+        if (defined($args{max_pass_age}) && $args{max_pass_age} !~ /$re_posint/o) {
             return [400, "Invalid max_pass_age"] }
-        if (defined($args{pass_warn_period}) && $args{pass_warn_period} !~ $re_posint) {
+        if (defined($args{pass_warn_period}) && $args{pass_warn_period} !~ /$re_posint/o) {
             return [400, "Invalid pass_warn_period"] }
         if (defined($args{pass_inactive_period}) &&
-                $args{pass_inactive_period} !~ $re_posint) {
+                $args{pass_inactive_period} !~ /$re_posint/o) {
             return [400, "Invalid pass_inactive_period"] }
-        if (defined($args{expire_date}) && $args{expire_date} !~ $re_posint) {
+        if (defined($args{expire_date}) && $args{expire_date} !~ /$re_posint/o) {
             return [400, "Invalid expire_date"] }
     }
 
     my ($gid, $members);
     if ($which eq 'group') {
-        if (defined($args{gid}) && $args{gid} !~ $re_posint) {
+        if (defined($args{gid}) && $args{gid} !~ /$re_posint/o) {
             return [400, "Invalid gid"] }
         if (defined $args{pass}) {
             $args{encpass} = $args{pass} eq '' ? '*' : _enc_pass($args{pass});
             $args{pass} = "x";
         }
-        if (defined($args{encpass}) && $args{encpass} !~ $re_field) {
+        if (defined($args{encpass}) && $args{encpass} !~ /$re_field/o) {
             return [400, "Invalid encpass"] }
         if (defined $args{members}) {
             if (ref($args{members}) eq 'ARRAY') { $args{members} = join(",",@{$args{members}}) }
-            $args{members} =~ $re_field or return [400, "Invalid members"];
+            $args{members} =~ /$re_field/o or return [400, "Invalid members"];
         }
         if (defined $args{admins}) {
             if (ref($args{admins}) eq 'ARRAY') { $args{admins} = join(",",@{$args{admins}}) }
-            $args{admins} =~ $re_field or return [400, "Invalid admins"];
+            $args{admins} =~ /$re_field/o or return [400, "Invalid admins"];
         }
     }
 
@@ -1475,7 +1478,7 @@ $SPEC{add_user_to_group} = {
 sub add_user_to_group {
     my %args = @_;
     my $user = $args{user} or return [400, "Please specify user"];
-    $user =~ $re_user or return [400, "Invalid user"];
+    $user =~ /$re_user/o or return [400, "Invalid user"];
     my $gn   = $args{group}; # will be required by modify_group
 
     # XXX check user exists
@@ -1510,7 +1513,7 @@ $SPEC{delete_user_from_group} = {
 sub delete_user_from_group {
     my %args = @_;
     my $user = $args{user} or return [400, "Please specify user"];
-    $user =~ $re_user or return [400, "Invalid user"];
+    $user =~ /$re_user/o or return [400, "Invalid user"];
     my $gn   = $args{group}; # will be required by modify_group
 
     # XXX check user exists
@@ -1566,7 +1569,7 @@ _
 sub add_delete_user_groups {
     my %args = @_;
     my $user = $args{user} or return [400, "Please specify user"];
-    $user =~ $re_user or return [400, "Invalid user"];
+    $user =~ /$re_user/o or return [400, "Invalid user"];
     my $add  = $args{add_to} // [];
     my $del  = $args{delete_from} // [];
 
@@ -1626,7 +1629,7 @@ _
 sub set_user_groups {
     my %args = @_;
     my $user = $args{user} or return [400, "Please specify user"];
-    $user =~ $re_user or return [400, "Invalid user"];
+    $user =~ /$re_user/o or return [400, "Invalid user"];
     my $gg   = $args{groups} or return [400, "Please specify groups"];
 
     # XXX check user exists
