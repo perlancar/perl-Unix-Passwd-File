@@ -12,7 +12,7 @@ use File::Path qw(remove_tree);
 use File::Slurp;
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_user get_user get_group);
-use Test::More 0.96;
+use Test::More 0.98;
 
 my @files = qw(passwd shadow group gshadow);
 
