@@ -1,5 +1,12 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.11     2014-03-21 (SHARYANTO)
+
+         - No functional changes.
+
+         - Add 'use experimental smartmatch' for perl 5.18.
+
+
 0.10     2012-09-06 (SHARYANTO)
 
          - Use Crypt::Password::Util's crypt() to create encrypted password in a
