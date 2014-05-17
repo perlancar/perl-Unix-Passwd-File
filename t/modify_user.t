@@ -8,7 +8,6 @@ use FindBin '$Bin';
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
-use File::Slurp;
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(modify_user get_user);
 use Test::More 0.96;
