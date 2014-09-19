@@ -498,9 +498,9 @@ $SPEC{list_users} = {
             description => <<'_',
 
 By default, when `detail=>1`, a hashref is returned for each entry containing
-field names and its values, e.g. `{user=>"neil", pass=>"x", uid=>500, ...}`.
-With `with_field_names=>0`, an arrayref is returned instead: `["neil", "x", 500,
-...]`.
+field names and its values, e.g. `{user=>"titin", pass=>"x", uid=>500, ...}`.
+With `with_field_names=>0`, an arrayref is returned instead: `["titin", "x",
+500, ...]`.
 
 _
         },
@@ -565,8 +565,8 @@ _
             description => <<'_',
 
 By default, a hashref is returned containing field names and its values, e.g.
-`{user=>"neil", pass=>"x", uid=>500, ...}`. With `with_field_names=>0`, an
-arrayref is returned instead: `["neil", "x", 500, ...]`.
+`{user=>"titin", pass=>"x", uid=>500, ...}`. With `with_field_names=>0`, an
+arrayref is returned instead: `["titin", "x", 500, ...]`.
 
 _
         },
@@ -647,9 +647,9 @@ $SPEC{list_groups} = {
             description => <<'_',
 
 By default, when `detail=>1`, a hashref is returned for each entry containing
-field names and its values, e.g. `{group=>"neil", pass=>"x", gid=>500, ...}`.
-With `with_field_names=>0`, an arrayref is returned instead: `["neil", "x", 500,
-...]`.
+field names and its values, e.g. `{group=>"titin", pass=>"x", gid=>500, ...}`.
+With `with_field_names=>0`, an arrayref is returned instead: `["titin", "x",
+500, ...]`.
 
 _
         },
@@ -714,8 +714,8 @@ _
             description => <<'_',
 
 By default, a hashref is returned containing field names and its values, e.g.
-`{group=>"neil", pass=>"x", gid=>500, ...}`. With `with_field_names=>0`, an
-arrayref is returned instead: `["neil", "x", 500, ...]`.
+`{group=>"titin", pass=>"x", gid=>500, ...}`. With `with_field_names=>0`, an
+arrayref is returned instead: `["titin", "x", 500, ...]`.
 
 _
         },
@@ -870,9 +870,9 @@ $SPEC{get_user_groups} = {
             description => <<'_',
 
 By default, when `detail=>1`, a hashref is returned for each entry containing
-field names and its values, e.g. `{group=>"neil", pass=>"x", gid=>500, ...}`.
-With `with_field_names=>0`, an arrayref is returned instead: `["neil", "x", 500,
-...]`.
+field names and its values, e.g. `{group=>"titin", pass=>"x", gid=>500, ...}`.
+With `with_field_names=>0`, an arrayref is returned instead: `["titin", "x",
+500, ...]`.
 
 _
         },
@@ -1831,38 +1831,38 @@ sub delete_user {
      # [200, "OK", [["root", "x", 0, ...], ...]]
 
  # get user/group information
- $res = get_group(user=>"buzz"); # [200, "OK", {user=>"buzz", uid=>501, ...}]
- $res = get_user(user=>"neil");  # [404, "Not found"]
+ $res = get_group(user=>"paijo"); # [200, "OK", {user=>"paijo", uid=>501, ...}]
+ $res = get_user(user=>"titin");  # [404, "Not found"]
 
  # check whether user/group exists
- say user_exists(user=>"buzz");   # 1
- say group_exists(group=>"neil"); # 0
+ say user_exists(user=>"paijo");   # 1
+ say group_exists(group=>"titin"); # 0
 
  # get all groups that user is member of
- $res = get_user_groups(user=>"buzz"); # [200, "OK", ["buzz", "nasa"]]
+ $res = get_user_groups(user=>"paijo"); # [200, "OK", ["paijo", "satpam"]]
 
  # check whether user is member of a group
- $res = is_member(user=>"buzz", group=>"nasa"); # 1
+ $res = is_member(user=>"paijo", group=>"satpam"); # 1
 
  # adding user/group, by default adding user will also add a group with the same
  # name
- $res = add_user (user =>"steven", ...); # [200, "OK", {uid=>540, gid=>541}]
- $res = add_group(group=>"steven", ...); # [412, "Group already exists"]
+ $res = add_user (user =>"ujang", ...); # [200, "OK", {uid=>540, gid=>541}]
+ $res = add_group(group=>"ujang", ...); # [412, "Group already exists"]
 
  # modify user/group
- $res = modify_user(user=>"steven", home=>"/newhome/steven"); # [200, "OK"]
- $res = modify_group(group=>"neil"); # [404, "Not found"]
+ $res = modify_user(user=>"ujang", home=>"/newhome/ujang"); # [200, "OK"]
+ $res = modify_group(group=>"titin"); # [404, "Not found"]
 
  # deleting user will also delete user's group
- $res = delete_user(user=>"neil");
+ $res = delete_user(user=>"titin");
 
  # change user password
- $res = set_user_password(user=>"steven", pass=>"foobar");
- $res = modify_user(user=>"steven", pass=>"foobar"); # same thing
+ $res = set_user_password(user=>"ujang", pass=>"foobar");
+ $res = modify_user(user=>"ujang", pass=>"foobar"); # same thing
 
  # add/delete user to/from group
- $res = add_user_to_group(user=>"steven", group=>"wheel");
- $res = delete_user_from_group(user=>"steven", group=>"wheel");
+ $res = add_user_to_group(user=>"ujang", group=>"wheel");
+ $res = delete_user_from_group(user=>"ujang", group=>"wheel");
 
  # others
  $res = get_max_uid(); # [200, "OK", 65535]
