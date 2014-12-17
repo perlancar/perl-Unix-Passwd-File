@@ -1,12 +1,13 @@
 package Unix::Passwd::File;
 
+# DATE
+# VERSION
+
 use 5.010001;
 use strict;
 use warnings;
 use experimental 'smartmatch';
 use Log::Any '$log';
-
-# VERSION
 
 use File::Flock;
 use List::Util qw(max first);
@@ -39,6 +40,11 @@ our @EXPORT_OK = qw(
                );
 
 our %SPEC;
+
+$SPEC{':package'} = {
+    v => 1.1,
+    summary => 'Manipulate /etc/{passwd,shadow,group,gshadow} entries',
+};
 
 my %common_args = (
     etc_dir => {
@@ -1813,7 +1819,7 @@ sub delete_user {
 }
 
 1;
-# ABSTRACT: Manipulate /etc/{passwd,shadow,group,gshadow} entries
+# ABSTRACT:
 
 =head1 SYNOPSIS
 
