@@ -73,166 +73,166 @@ our $re_posint = qr/\A[1-9][0-9]*\z/;
 
 our %passwd_fields = (
     user => {
-        index   => 0,
-        schema  => ['str*' => {match => $re_user}],
         summary => 'User (login) name',
+        schema  => ['str*' => {match => $re_user}],
+        pos     => 0,
     },
     pass => {
-        index   => 1,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'Password, generally should be "x" which means password is '.
             'encrypted in shadow',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 1,
     },
     uid => {
-        index   => 2,
-        schema  => 'int*',
         summary => 'Numeric user ID',
+        schema  => 'int*',
+        pos     => 2,
     },
     gid => {
-        index   => 3,
-        schema  => 'int*',
         summary => 'Numeric primary group ID for this user',
+        schema  => 'int*',
+        pos     => 3,
     },
     gecos => {
-        index   => 4,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'Usually, it contains the full username',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 4,
     },
     home => {
-        index   => 5,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'User\'s home directory',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 5,
     },
     shell => {
-        index   => 6,
-        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
         summary => 'User\'s home directory',
+        schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
+        pos     => 6,
     },
 );
 our @passwd_field_names;
 for (keys %passwd_fields) {
-    $passwd_field_names[$passwd_fields{$_}{index}] = $_;
-    delete $passwd_fields{$_}{index};
+    $passwd_field_names[$passwd_fields{$_}{pos}] = $_;
+    delete $passwd_fields{$_}{pos};
 }
 
 our %shadow_fields = (
     user => {
-        index   => 0,
-        schema  => ['str*' => {match => $re_user}],
         summary => 'User (login) name',
+        schema  => ['str*' => {match => $re_user}],
+        pos     => 0,
     },
     encpass => {
-        index   => 1,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'Encrypted password',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 1,
     },
     last_pwchange => {
-        index   => 2,
-        schema  => 'int',
         summary => 'The date of the last password change, '.
             'expressed as the number of days since Jan 1, 1970.',
+        schema  => 'int',
+        pos     => 2,
     },
     min_pass_age => {
-        index   => 3,
-        schema  => 'int',
         summary => 'The number of days the user will have to wait before she '.
             'will be allowed to change her password again',
+        schema  => 'int',
+        pos     => 3,
     },
     max_pass_age => {
-        index   => 4,
-        schema  => 'int',
         summary => 'The number of days after which the user will have to '.
             'change her password',
+        schema  => 'int',
+        pos     => 4,
     },
     pass_warn_period => {
-        index   => 5,
-        schema  => 'int',
         summary => 'The number of days before a password is going to expire '.
             '(see max_pass_age) during which the user should be warned',
+        schema  => 'int',
+        pos     => 5,
     },
     pass_inactive_period => {
-        index   => 6,
-        schema  => 'int',
         summary => 'The number of days after a password has expired (see '.
             'max_pass_age) during which the password should still be accepted '.
                 '(and user should update her password during the next login)',
+        schema  => 'int',
+        pos     => 6,
     },
     expire_date => {
-        index   => 7,
-        schema  => 'int',
         summary => 'The date of expiration of the account, expressed as the '.
             'number of days since Jan 1, 1970',
+        schema  => 'int',
+        pos     => 7,
     },
     reserved => {
-        index   => 8,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'This field is reserved for future use',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 8,
     }
 );
 our @shadow_field_names;
 for (keys %shadow_fields) {
-    $shadow_field_names[$shadow_fields{$_}{index}] = $_;
-    delete $shadow_fields{$_}{index};
+    $shadow_field_names[$shadow_fields{$_}{pos}] = $_;
+    delete $shadow_fields{$_}{pos};
 }
 
 our %group_fields = (
     group => {
-        index   => 0,
-        schema  => ['str*' => {match => $re_group}],
         summary => 'Group name',
+        schema  => ['str*' => {match => $re_group}],
+        pos     => 0,
     },
     pass => {
-        index   => 1,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'Password, generally should be "x" which means password is '.
             'encrypted in gshadow',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 1,
     },
     gid => {
-        index   => 2,
-        schema  => 'int*',
         summary => 'Numeric group ID',
+        schema  => 'int*',
+        pos     => 2,
     },
     members => {
-        index   => 3,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'List of usernames that are members of this group, '.
             'separated by commas',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 3,
     },
 );
 our @group_field_names;
 for (keys %group_fields) {
-    $group_field_names[$group_fields{$_}{index}] = $_;
-    delete $group_fields{$_}{index};
+    $group_field_names[$group_fields{$_}{pos}] = $_;
+    delete $group_fields{$_}{pos};
 }
 
 our %gshadow_fields = (
     group => {
-        index   => 0,
-        schema  => ['str*' => {match => $re_group}],
         summary => 'Group name',
+        schema  => ['str*' => {match => $re_group}],
+        pos     => 0,
     },
     encpass => {
-        index => 1,
-        schema  => ['str*' => {match=> $re_field}],
         summary => 'Encrypted password',
+        schema  => ['str*' => {match=> $re_field}],
+        pos     => 1,
     },
     admins => {
-        index => 2,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'It must be a comma-separated list of user names, or empty',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 2,
     },
     members => {
-        index => 3,
-        schema  => ['str*' => {match => $re_field}],
         summary => 'List of usernames that are members of this group, '.
             'separated by commas; You should use the same list of users as in '.
                 '/etc/group.',
+        schema  => ['str*' => {match => $re_field}],
+        pos     => 3,
     },
 );
 our @gshadow_field_names;
 for (keys %gshadow_fields) {
-    $gshadow_field_names[$gshadow_fields{$_}{index}] = $_;
-    delete $gshadow_fields{$_}{index};
+    $gshadow_field_names[$gshadow_fields{$_}{pos}] = $_;
+    delete $gshadow_fields{$_}{pos};
 }
 
 sub _backup {
