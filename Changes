@@ -44,9 +44,11 @@ Revision history for Perl extension Unix-Passwd-File
 
 0.09     2012-09-06 (SHARYANTO)
 
-         - No functional changes. In test script, use Crypt::Password::Util's
-           looks_like_crypt() to check encrypted password instead of /^\$6\$/
-           (implies SSHA512) because different OS'es use different crypt types.
+         - No functional changes.
+
+         - In test script, use Crypt::Password::Util's looks_like_crypt() to
+           check encrypted password instead of /^\$6\$/ (implies SSHA512)
+           because different OS'es use different crypt types.
 
 
 0.08     2012-09-05 (SHARYANTO)
@@ -99,7 +101,8 @@ Revision history for Perl extension Unix-Passwd-File
 
          [ENHANCEMENTS]
 
-         - Implement modify_user(), modify_group(), delete_user(),
+         - Implement the rest of the functions not yet implemented in the
+           previous release: modify_user(), modify_group(), delete_user(),
            delete_group(), set_user_password(), add_user_to_group(),
            delete_user_from_group().
 
