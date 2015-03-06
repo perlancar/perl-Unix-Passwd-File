@@ -50,6 +50,7 @@ my %common_args = (
     etc_dir => {
         summary => 'Specify location of passwd files',
         schema  => ['str*' => {default=>'/etc'}],
+        tags    => ['common'],
     },
 );
 my %write_args = (
