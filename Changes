@@ -1,5 +1,12 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.15    2015-03-06 (PERLANCAR)
+
+	- No functional changes.
+
+	- Tweak Rinci metadata: add some argument positions, schemas, etc.
+
+
 0.14    2015-03-06 (PERLANCAR)
 
 	- No functional changes.
