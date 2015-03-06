@@ -1,5 +1,13 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.14    2015-03-06 (PERLANCAR)
+
+	- No functional changes.
+
+	- Give hints of table column order when returning detailed list of
+	  users/groups.
+
+
 0.13     2015-03-06 (PERLANCAR)
 
          - No functional changes.
