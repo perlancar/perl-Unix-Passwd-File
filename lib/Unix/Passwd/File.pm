@@ -244,9 +244,10 @@ sub _backup {
     [200];
 }
 
-# all public functions in this module uses the _routine, which contains the
-# basic flow, to avoid duplication of code. _routine accept these special
-# arguments for flow control:
+# all public functions in this module use the _routine(), which contains the
+# basic flow, to avoid duplication of code. admittedly this makes _routine()
+# quite convoluted, as it tries to accomodate all the functions' logic in a
+# single routine. _routine() accepts these special arguments for flow control:
 #
 # - _read_shadow   = 0*/1/2 (2 means optional, don't exit if fail)
 # - _read_passwd   = 0*/1
@@ -262,13 +263,13 @@ sub _backup {
 # - _write_group   = 0*/1
 #
 # all the hooks are fed $stash, sort of like a bag or object containing all
-# data. should return enveloped response. _routine will return with response if
-# response is non success. _routine will also return immediately if $stash{exit}
-# is set.
+# data. should return enveloped response. _routine() will return with response
+# if response is non success. _routine() will also return immediately if
+# $stash{exit} is set.
 #
-# to write, we open once but with mode +< instead of <. we read first then we
-# seek back to beginning and write from in-memory data. if
-# $stash{write_passwd} and so on is set to false, routine cancel the write
+# to write, we open once but with mode '+<' instead of '<'. we read first then
+# we seek back to beginning and write from in-memory data. if
+# $stash{write_passwd} and so on is set to false, _routine() cancels the write
 # (can be used e.g. when there is no change so no need to write).
 #
 # final result is in $stash{res} or non-success result returned by hook.
