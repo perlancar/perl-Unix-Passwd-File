@@ -235,6 +235,13 @@ for (keys %gshadow_fields) {
     delete $gshadow_fields{$_}{pos};
 }
 
+sub _arg_from_field {
+    my ($fields, $name, %extra) = @_;
+    my %spec = %{ $fields->{$name} };
+    $spec{$_} = $extra{$_} for keys %extra;
+    ($name => \%spec);
+}
+
 sub _backup {
     my ($fh, $path) = @_;
     seek $fh, 0, 0 or return [500, "Can't seek: $!"];
@@ -561,6 +568,9 @@ Either `user` OR `uid` must be specified.
 The function is not dissimilar to Unix's `getpwnam()` or `getpwuid()`.
 
 _
+    args_groups => [
+        {rel=>'one_of', args=>[qw/user uid/]},
+    ],
     args => {
         %common_args,
         user => {
@@ -620,6 +630,9 @@ sub get_user {
 $SPEC{user_exists} = {
     v => 1.1,
     summary => 'Check whether user exists',
+    args_groups => [
+        {rel=>'one_of', args=>[qw/user uid/]},
+    ],
     args => {
         %common_args,
         user => {
@@ -712,6 +725,9 @@ Either `group` OR `gid` must be specified.
 The function is not dissimilar to Unix's `getgrnam()` or `getgrgid()`.
 
 _
+    args_groups => [
+        {rel=>'one_of', args=>[qw/group gid/]},
+    ],
     args => {
         %common_args,
         group => {
@@ -842,6 +858,9 @@ sub list_users_and_groups {
 $SPEC{group_exists} = {
     v => 1.1,
     summary => 'Check whether group exists',
+    args_groups => [
+        {rel=>'one_of', args=>[qw/group gid/]},
+    ],
     args => {
         %common_args,
         group => {
@@ -870,7 +889,9 @@ $SPEC{get_user_groups} = {
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         detail => {
             summary => 'If true, return all fields instead of just group names',
@@ -942,10 +963,14 @@ $SPEC{is_member} = {
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         group => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
     },
     result_naked => 1,
@@ -1173,7 +1198,9 @@ $SPEC{add_group} = {
         %common_args,
         %write_args,
         group => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         gid => {
             summary => 'Pick a specific new GID',
@@ -1219,7 +1246,9 @@ $SPEC{add_user} = {
         %common_args,
         %write_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         group => {
             summary => 'Select primary group '.
@@ -1444,9 +1473,13 @@ _
     args => {
         %common_args,
         %write_args,
-        map( {($_=>$group_fields{$_})} qw/group pass gid members/),
-        map( {($_=>$gshadow_fields{$_})}
-                 qw/encpass admins/),
+        _arg_from_field(\%group_fields, 'group', req=>1, pos=>0),
+        _arg_from_field(\%group_fields, 'pass'),
+        _arg_from_field(\%group_fields, 'gid'),
+        _arg_from_field(\%group_fields, 'members'),
+
+        _arg_from_field(\%gshadow_fields, 'encpass'),
+        _arg_from_field(\%gshadow_fields, 'admins'),
     },
 };
 sub modify_group {
@@ -1465,10 +1498,20 @@ _
     args => {
         %common_args,
         %write_args,
-        map( {($_=>$passwd_fields{$_})} qw/user pass uid gid gecos home shell/),
-        map( {($_=>$shadow_fields{$_})}
-                 qw/encpass last_pwchange min_pass_age max_pass_age
-                   pass_warn_period pass_inactive_period expire_date/),
+        _arg_from_field(\%passwd_fields, 'user', req=>1, pos=>0),
+        _arg_from_field(\%passwd_fields, 'uid'),
+        _arg_from_field(\%passwd_fields, 'gid'),
+        _arg_from_field(\%passwd_fields, 'gecos'),
+        _arg_from_field(\%passwd_fields, 'home'),
+        _arg_from_field(\%passwd_fields, 'shell'),
+
+        _arg_from_field(\%shadow_fields, 'encpass'),
+        _arg_from_field(\%shadow_fields, 'last_pwchange'),
+        _arg_from_field(\%shadow_fields, 'min_pass_age'),
+        _arg_from_field(\%shadow_fields, 'max_pass_age'),
+        _arg_from_field(\%shadow_fields, 'pass_warn_period'),
+        _arg_from_field(\%shadow_fields, 'pass_inactive_period'),
+        _arg_from_field(\%shadow_fields, 'expire_date'),
     },
 };
 sub modify_user {
@@ -1481,10 +1524,14 @@ $SPEC{add_user_to_group} = {
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         group => {
+            schema => 'str*',
             req => 1,
+            pos => 1,
         },
     },
 };
@@ -1516,10 +1563,14 @@ $SPEC{delete_user_from_group} = {
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         group => {
+            schema => 'str*',
             req => 1,
+            pos => 1,
         },
     },
 };
@@ -1567,7 +1618,9 @@ _
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         add_to => {
             summary => 'List of group names to add the user as member of',
@@ -1625,12 +1678,16 @@ $SPEC{set_user_groups} = {
     args => {
         %common_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         groups => {
             summary => 'List of group names that user is member of',
             schema => [array => {of=>'str*', default=>[]}],
             req => 1,
+            pos => 1,
+            greedy => 1,
             description => <<'_',
 
 Aside from this list, user will not belong to any other group.
@@ -1685,10 +1742,14 @@ $SPEC{set_user_password} = {
         %common_args,
         %write_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
         pass => {
+            schema => 'str*',
             req => 1,
+            pos => 1,
         },
     },
 };
@@ -1801,7 +1862,9 @@ $SPEC{delete_group} = {
         %common_args,
         %write_args,
         group => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
     },
 };
@@ -1816,7 +1879,9 @@ $SPEC{delete_user} = {
         %common_args,
         %write_args,
         user => {
+            schema => 'str*',
             req => 1,
+            pos => 0,
         },
     },
 };
