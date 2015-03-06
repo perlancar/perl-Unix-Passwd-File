@@ -1,5 +1,12 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.13     2015-03-06 (PERLANCAR)
+
+         - No functional changes.
+
+         - Some minor tweaks and POD fixes.
+
+
 0.12     2014-05-17 (SHARYANTO)
 
          - No functional changes.
