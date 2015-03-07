@@ -970,7 +970,7 @@ $SPEC{is_member} = {
         group => {
             schema => 'str*',
             req => 1,
-            pos => 0,
+            pos => 1,
         },
     },
     result_naked => 1,
