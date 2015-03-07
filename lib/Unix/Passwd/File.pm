@@ -76,6 +76,7 @@ our %passwd_fields = (
         summary => 'User (login) name',
         schema  => ['str*' => {match => $re_user}],
         pos     => 0,
+        'x.schema.entity' => 'unix_user',
     },
     pass => {
         summary => 'Password, generally should be "x" which means password is '.
@@ -87,11 +88,13 @@ our %passwd_fields = (
         summary => 'Numeric user ID',
         schema  => 'int*',
         pos     => 2,
+        'x.schema.entity' => 'unix_uid',
     },
     gid => {
         summary => 'Numeric primary group ID for this user',
         schema  => 'int*',
         pos     => 3,
+        'x.schema.entity' => 'unix_gid',
     },
     gecos => {
         summary => 'Usually, it contains the full username',
@@ -104,9 +107,10 @@ our %passwd_fields = (
         pos     => 5,
     },
     shell => {
-        summary => 'User\'s home directory',
+        summary => 'User\'s shell',
         schema  => ['str*' => {match=>qr/\A[^\n:]*\z/}],
         pos     => 6,
+        # XXX x.schema.entity => prog (or, filename + x filter)
     },
 );
 our @passwd_field_names;
@@ -120,6 +124,7 @@ our %shadow_fields = (
         summary => 'User (login) name',
         schema  => ['str*' => {match => $re_user}],
         pos     => 0,
+        'x.schema.entity' => 'unix_user',
     },
     encpass => {
         summary => 'Encrypted password',
@@ -180,6 +185,7 @@ our %group_fields = (
         summary => 'Group name',
         schema  => ['str*' => {match => $re_group}],
         pos     => 0,
+        'x.schema.entity' => 'unix_group',
     },
     pass => {
         summary => 'Password, generally should be "x" which means password is '.
@@ -191,6 +197,7 @@ our %group_fields = (
         summary => 'Numeric group ID',
         schema  => 'int*',
         pos     => 2,
+        'x.schema.entity' => 'unix_gid',
     },
     members => {
         summary => 'List of usernames that are members of this group, '.
@@ -210,6 +217,7 @@ our %gshadow_fields = (
         summary => 'Group name',
         schema  => ['str*' => {match => $re_group}],
         pos     => 0,
+        'x.schema.entity' => 'unix_group',
     },
     encpass => {
         summary => 'Encrypted password',
@@ -575,9 +583,11 @@ _
         %common_args,
         user => {
             schema => 'str*',
+            'x.schema.entity' => 'unix_user',
         },
         uid => {
             schema => 'int*',
+            'x.schema.entity' => 'unix_uid',
         },
         with_field_names => {
             summary => 'If false, don\'t return hash',
@@ -637,9 +647,11 @@ $SPEC{user_exists} = {
         %common_args,
         user => {
             schema => 'str*',
+            'x.schema.entity' => 'unix_user',
         },
         uid => {
             schema => 'int*',
+            'x.schema.entity' => 'unix_uid',
         },
     },
     result_naked => 1,
@@ -732,9 +744,11 @@ _
         %common_args,
         group => {
             schema => 'str*',
+            'x.schema.entity' => 'unix_user',
         },
         gid => {
             schema => 'int*',
+            'x.schema.entity' => 'unix_gid',
         },
         with_field_names => {
             summary => 'If false, don\'t return hash',
@@ -865,9 +879,11 @@ $SPEC{group_exists} = {
         %common_args,
         group => {
             schema => 'str*',
+            'x.schema.entity' => 'unix_group',
         },
         gid => {
             schema => 'int*',
+            'x.schema.entity' => 'unix_gid',
         },
     },
     result_naked => 1,
@@ -892,6 +908,7 @@ $SPEC{get_user_groups} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         detail => {
             summary => 'If true, return all fields instead of just group names',
@@ -966,11 +983,13 @@ $SPEC{is_member} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         group => {
             schema => 'str*',
             req => 1,
             pos => 1,
+            'x.schema.entity' => 'unix_group',
         },
     },
     result_naked => 1,
@@ -1201,6 +1220,7 @@ $SPEC{add_group} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            #'x.schema.entity' => 'unix_group', # XXX new
         },
         gid => {
             summary => 'Pick a specific new GID',
@@ -1209,6 +1229,7 @@ $SPEC{add_group} = {
 Adding a new group with duplicate GID is allowed.
 
 _
+            #'x.schema.entity' => 'unix_gid', # XXX new
         },
         min_gid => {
             summary => 'Pick a range for new GID',
@@ -1249,6 +1270,7 @@ $SPEC{add_user} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            #'x.schema.entity' => 'unix_user', # XXX new
         },
         group => {
             summary => 'Select primary group '.
@@ -1261,6 +1283,7 @@ which must already exist (and in this case, the group with the same name as user
 will not be created).
 
 _
+            'x.schema.entity' => 'unix_group',
         },
         gid => {
             summary => 'Pick a specific GID when creating group',
@@ -1527,11 +1550,13 @@ $SPEC{add_user_to_group} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         group => {
             schema => 'str*',
             req => 1,
             pos => 1,
+            'x.schema.entity' => 'unix_group',
         },
     },
 };
@@ -1566,11 +1591,13 @@ $SPEC{delete_user_from_group} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         group => {
             schema => 'str*',
             req => 1,
             pos => 1,
+            'x.schema.entity' => 'unix_group',
         },
     },
 };
@@ -1621,14 +1648,17 @@ _
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         add_to => {
             summary => 'List of group names to add the user as member of',
             schema => [array => {of=>'str*', default=>[]}],
+            'x.schema.element_entity' => 'unix_group',
         },
         delete_from => {
             summary => 'List of group names to remove the user as member of',
             schema => [array => {of=>'str*', default=>[]}],
+            'x.schema.element_entity' => 'unix_group',
         },
     },
 };
@@ -1681,6 +1711,7 @@ $SPEC{set_user_groups} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         groups => {
             summary => 'List of group names that user is member of',
@@ -1693,6 +1724,7 @@ $SPEC{set_user_groups} = {
 Aside from this list, user will not belong to any other group.
 
 _
+            'x.schema.element_entity' => 'unix_group',
         },
     },
 };
@@ -1745,6 +1777,7 @@ $SPEC{set_user_password} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
         pass => {
             schema => 'str*',
@@ -1865,6 +1898,7 @@ $SPEC{delete_group} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_group',
         },
     },
 };
@@ -1882,6 +1916,7 @@ $SPEC{delete_user} = {
             schema => 'str*',
             req => 1,
             pos => 0,
+            'x.schema.entity' => 'unix_user',
         },
     },
 };
