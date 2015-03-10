@@ -1,5 +1,13 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.17    2015-03-10 (PERLANCAR)
+
+	- No functional changes.
+
+	- Change result metadata 'result_format_options' ->
+	  'format_options'.
+
+
 0.16    2015-03-07 (PERLANCAR)
 
 	- No functional changes.
