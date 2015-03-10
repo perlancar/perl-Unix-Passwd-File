@@ -557,7 +557,7 @@ sub list_users {
             }
 
             $stash->{res} = [200, "OK", \@rows];
-            $stash->{res}[3]{result_format_options}{any}{table_column_orders} =
+            $stash->{res}[3]{format_options}{any}{table_column_orders} =
                 [\@passwd_field_names] if $detail;
 
             $stash->{exit}++;
@@ -718,7 +718,7 @@ sub list_groups {
             }
 
             $stash->{res} = [200, "OK", \@rows];
-            $stash->{res}[3]{result_format_options}{any}{table_column_orders} =
+            $stash->{res}[3]{format_options}{any}{table_column_orders} =
                 [\@group_field_names] if $detail;
 
             $stash->{exit}++;
