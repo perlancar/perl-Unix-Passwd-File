@@ -1224,6 +1224,7 @@ $SPEC{add_group} = {
         },
         gid => {
             summary => 'Pick a specific new GID',
+            schema => 'int*',
             description => <<'_',
 
 Adding a new group with duplicate GID is allowed.
@@ -1275,6 +1276,7 @@ $SPEC{add_user} = {
         group => {
             summary => 'Select primary group '.
                 '(default is group with same name as user)',
+            schema => 'str*',
             description => <<'_',
 
 Normally, a user's primary group with group with the same name as user, which
@@ -1287,6 +1289,7 @@ _
         },
         gid => {
             summary => 'Pick a specific GID when creating group',
+            schema => 'int*',
             description => <<'_',
 
 Duplicate GID is allowed.
@@ -1295,12 +1298,15 @@ _
         },
         min_gid => {
             summary => 'Pick a range for GID when creating group',
+            schema => 'int*',
         },
         max_gid => {
             summary => 'Pick a range for GID when creating group',
+            schema => 'int*',
         },
         uid => {
             summary => 'Pick a specific new UID',
+            schema => 'int*',
             description => <<'_',
 
 Adding a new user with duplicate UID is allowed.
