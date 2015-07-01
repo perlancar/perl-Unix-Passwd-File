@@ -576,9 +576,9 @@ Either `user` OR `uid` must be specified.
 The function is not dissimilar to Unix's `getpwnam()` or `getpwuid()`.
 
 _
-    args_groups => [
-        {rel=>'one_of', args=>[qw/user uid/]},
-    ],
+    args_rels => {
+        'choose_one' => [qw/user uid/],
+    },
     args => {
         %common_args,
         user => {
@@ -640,9 +640,9 @@ sub get_user {
 $SPEC{user_exists} = {
     v => 1.1,
     summary => 'Check whether user exists',
-    args_groups => [
-        {rel=>'one_of', args=>[qw/user uid/]},
-    ],
+    args_rels => {
+        choose_one => [qw/user uid/],
+    },
     args => {
         %common_args,
         user => {
@@ -737,9 +737,9 @@ Either `group` OR `gid` must be specified.
 The function is not dissimilar to Unix's `getgrnam()` or `getgrgid()`.
 
 _
-    args_groups => [
-        {rel=>'one_of', args=>[qw/group gid/]},
-    ],
+    args_rels => {
+        choose_one => [qw/group gid/],
+    },
     args => {
         %common_args,
         group => {
@@ -872,9 +872,9 @@ sub list_users_and_groups {
 $SPEC{group_exists} = {
     v => 1.1,
     summary => 'Check whether group exists',
-    args_groups => [
-        {rel=>'one_of', args=>[qw/group gid/]},
-    ],
+    args_rels => {
+        choose_one => [qw/group gid/],
+    },
     args => {
         %common_args,
         group => {
