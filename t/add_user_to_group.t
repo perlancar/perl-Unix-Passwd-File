@@ -7,7 +7,6 @@ use FindBin '$Bin';
 
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
-use File::Flock;
 use File::Path qw(remove_tree);
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_user_to_group get_group);

@@ -9,7 +9,7 @@ use warnings;
 use experimental 'smartmatch';
 use Log::Any::IfLOG '$log';
 
-use File::Flock;
+use File::Flock::Retry;
 use List::Util qw(max first);
 use List::MoreUtils qw(firstidx);
 
@@ -295,22 +295,13 @@ sub _routine {
     my $etc     = $args{etc_dir} // "/etc";
     my $detail  = $args{detail};
     my $wfn     = $args{with_field_names} // 1;
-    my $locked;
+    my $lock;
     my ($fhp, $fhs, $fhg, $fhgs);
     my %stash;
 
     my $e = eval {
 
-        if ($args{_lock}) {
-            my $l;
-            for (1..3) {
-                $l = lock("$etc/passwd.lock", undef, 'nonblocking');
-                last if $l;
-                sleep 1;
-            }
-            return [412, "Can't lock $etc/passwd.lock"] unless $l;
-            $locked++;
-        }
+        $lock = File::Flock::Retry->lock("$etc/passwd.lock", {retries=>3});
 
         # read files
 
@@ -495,9 +486,7 @@ sub _routine {
     }; # eval
     $e = [500, "Died: $@"] if $@;
 
-    if ($locked) {
-        unlock("$etc/passwd.lock");
-    }
+    undef $lock;
 
     $stash{res} //= $e if $e && $e->[0] != 200;
     $stash{res} //= $e if $e && $e->[0] != 200;
