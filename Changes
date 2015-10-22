@@ -1,5 +1,12 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.22    2015-10-22 (PERLANCAR)
+
+	- No functional changes.
+
+	- Replace File::Flock with the more lightweight File::Flock::Retry.
+
+
 0.21    2015-09-06 (PERLANCAR)
 
 	- No functional changes.
