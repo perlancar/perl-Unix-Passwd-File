@@ -9,7 +9,7 @@ use Crypt::Password::Util qw(looks_like_crypt);
 use File::chdir;
 use File::Copy::Recursive qw(rcopy);
 use File::Path qw(remove_tree);
-use File::Slurp::Tiny qw(read_file);
+use File::Slurper qw(read_text);
 use File::Temp qw(tempdir);
 use Unix::Passwd::File qw(add_user get_user get_group);
 use Test::More 0.98;
@@ -63,8 +63,8 @@ subtest "success" => sub {
 
     # check that other entries, whitespace, etc are not being mangled.
     for (@files) {
-        is(scalar(read_file "$tmpdir/simple/$_"),
-           scalar(read_file "$Bin/data/simple-after-add_user-foo/$_"),
+        is(scalar(read_text "$tmpdir/simple/$_"),
+           scalar(read_text "$Bin/data/simple-after-add_user-foo/$_"),
            "compare file $_");
     }
 
