@@ -301,7 +301,9 @@ sub _routine {
 
     my $e = eval {
 
-        $lock = File::Flock::Retry->lock("$etc/passwd.lock", {retries=>3});
+        if ($args{_lock}) {
+            $lock = File::Flock::Retry->lock("$etc/passwd.lock", {retries=>3});
+        }
 
         # read files
 
