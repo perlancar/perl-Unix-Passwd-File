@@ -46,7 +46,7 @@ subtest "user already exists -> fail" => sub {
     my $res = add_user(etc_dir=>"$tmpdir/simple",
                        user=>"u1", home=>"/home/foo", shell=>"/bin/bash",
                    );
-    is($res->[0], 412, "status");
+    is($res->[0], 412, "status") or diag explain $res;
 };
 
 subtest "success" => sub {

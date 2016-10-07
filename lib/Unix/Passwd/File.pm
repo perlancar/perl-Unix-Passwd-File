@@ -295,14 +295,16 @@ sub _routine {
     my $etc     = $args{etc_dir} // "/etc";
     my $detail  = $args{detail};
     my $wfn     = $args{with_field_names} // 1;
-    my $lock;
+    my @locks;
     my ($fhp, $fhs, $fhg, $fhgs);
     my %stash;
 
     my $e = eval {
 
         if ($args{_lock}) {
-            $lock = File::Flock::Retry->lock("$etc/passwd.lock", {retries=>3});
+            for (qw/passwd shadow group gshadow/) {
+                push @locks, File::Flock::Retry->lock("$etc/$_", {retries=>3});
+            }
         }
 
         # read files
@@ -488,7 +490,8 @@ sub _routine {
     }; # eval
     $e = [500, "Died: $@"] if $@;
 
-    undef $lock;
+    # release the locks
+    undef @locks;
 
     $stash{res} //= $e if $e && $e->[0] != 200;
     $stash{res} //= $e if $e && $e->[0] != 200;
@@ -1984,7 +1987,7 @@ to search in custom location, for testing purposes).
 This module uses a procedural (non-OO) interface. Each function in this module
 open and read the passwd files once. Read-only functions like `list_users()` and
 `get_max_gid()` open in read-only mode. Functions that might write to the files
-like `add_user()` or `delete_group()` first lock `passwd.lock` file, open in
+like `add_user()` or `delete_group()` first lock `passwd` file, open in
 read+write mode and also read the files in the first pass, then seek to the
 beginning and write back the files.
 
@@ -2026,7 +2029,7 @@ I consider this a feature :-)
 
 =item * working locking
 
-Locking is done by locking C<passwd.lock> file.
+Locking is done by locking C<passwd> file.
 
 =back
 
