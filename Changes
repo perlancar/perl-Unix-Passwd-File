@@ -1,5 +1,17 @@
 Revision history for Perl extension Unix-Passwd-File
 
+0.23    2016-10-07 (PERLANCAR)
+
+	- [Experimental] Increase safety/compatibility with other programs that
+	  might write to the passwd files by locking all the
+	  passwd/shadow/group/gshadow files themselves instead of just
+	  passwd.lock file (see [GH#1]).
+
+	- [Bugfix] Regression bug, when we switched to File::Flock::Retry,
+	  locking was accidentally always done for all actions including
+	  read-only ones [GH#1].
+
+
 0.22    2015-10-22 (PERLANCAR)
 
 	- No functional changes.
