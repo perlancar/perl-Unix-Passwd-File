@@ -184,8 +184,7 @@
            Unix::Passwd::File I just need to specify etc_dir; 2) I couldn't get
            locking to work, something which I think is important and I'd rather
            start with a clean codebase to make sure this and other things work;
-           3) want a cleaner interface, without any global error variable.
-
-           This release does not include some functions yet: modify_user(),
+           3) want a cleaner interface, without any global error variable. This
+           release does not include some functions yet: modify_user(),
            modify_group(), delete_user(), delete_group(), set_user_password(),
            add_user_to_group(), delete_user_from_group().
