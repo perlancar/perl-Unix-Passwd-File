@@ -1,5 +1,7 @@
 package Unix::Passwd::File;
 
+## no critic (InputOutput::RequireBriefOpen)
+
 # DATE
 # VERSION
 
